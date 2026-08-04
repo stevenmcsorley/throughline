@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/banner.png" alt="Throughline" width="100%">
+</p>
+
 # Throughline
 
 A production-grade static application security testing (SAST) tool. Multi-engine hybrid analysis combining regex patterns, tree-sitter AST queries, inter-procedural call graphs, code property graphs (CPG), SSA form, points-to analysis, function summaries, entropy-based secret detection, OSV-backed dependency CVE scanning, MCP-driven AI triage, and incremental diff scanning — all in a single Node.js binary.
