@@ -431,6 +431,41 @@ function computeScanHashes(options: ScanOptions, rules: Rule[]): { configHash: s
   };
 }
 
+// ─── Test-code weighting ───────────────────────────────────────────────
+
+/** Paths that hold test, fixture or example code rather than shipped code. */
+const NON_PRODUCTION_PATH =
+  /(?:^|[\\/])(?:tests?|__tests?__|spec|specs|fixtures?|examples?|samples?|mocks?|__mocks__|testdata|e2e|cypress|benchmarks?)[\\/]|\.(?:test|spec|e2e)\.[cm]?[jt]sx?$/i;
+
+/**
+ * Lower the severity of findings in test and fixture code by one step.
+ *
+ * A credential in `test/api/user.test.ts` is worth knowing about — it may be a
+ * real key someone pasted in — but it is not the same risk as one in a shipped
+ * request handler, and it should not fail a `--severity critical` gate. Juice
+ * Shop put 27 such findings in a single test file, all reported critical, which
+ * buries the genuine ones.
+ *
+ * Deliberately a downgrade, not a suppression: the finding still appears, one
+ * level down, and says why.
+ */
+function weightNonProductionCode(findings: Finding[]): Finding[] {
+  const step: Record<Severity, Severity> = {
+    critical: 'high', high: 'medium', medium: 'low', low: 'info', info: 'info',
+  };
+
+  for (const f of findings) {
+    if (!NON_PRODUCTION_PATH.test(f.file)) continue;
+    const lowered = step[f.severity];
+    if (lowered !== f.severity) {
+      f.severity = lowered;
+      f.message = `${f.message} (in test or fixture code — severity reduced one step)`;
+    }
+    if (f.falsePositiveRisk === 'low') f.falsePositiveRisk = 'medium';
+  }
+  return findings;
+}
+
 // ─── Filtering ─────────────────────────────────────────────────────────
 
 const SEVERITY_ORDER: Severity[] = ['info', 'low', 'medium', 'high', 'critical'];
@@ -799,7 +834,9 @@ function runScan(options: ScanOptions): ScanResult {
   }
 
   // ─── Reporting filters ───────────────────────────────────────────────
-  let findings = applyFindingFilters(allFindings, options);
+  // Weight before filtering, so a downgraded test finding is judged against the
+  // severity threshold at its adjusted level rather than its original one.
+  let findings = applyFindingFilters(weightNonProductionCode(allFindings), options);
 
   // Reviewed false positives are dropped here. The count is always reported so
   // suppression is visible rather than silent.

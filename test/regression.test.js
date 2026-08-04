@@ -970,3 +970,78 @@ describe('detection: insecure direct object reference', () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('precision: false positives found by scanning Juice Shop', () => {
+  test('an interpolated value in a query string is not a hardcoded secret', () => {
+    // `password = '${req.body.password}'` inside SQL is an injection, already
+    // reported as one — not a credential. 219 of Juice Shop's 238 secret
+    // findings were this shape.
+    withTempFile(
+      'const q = `SELECT * FROM Users WHERE email = \'${req.body.email}\' AND password = \'${req.body.password}\'`;\n',
+      result => assert.ok(!result.findings.some(f => f.ruleId === 'hardcoded-secrets'),
+        'an interpolated placeholder is not a literal secret')
+    );
+  });
+
+  test('the same line is still reported as SQL injection', () => {
+    withTempFile(
+      'function f(req, db) { return db.query(`SELECT * FROM u WHERE e = \'${req.body.email}\'`); }\n',
+      result => assert.ok(result.findings.some(f => /sql/.test(f.ruleId)),
+        'suppressing the wrong rule must not suppress the right one')
+    );
+  });
+
+  test('a genuine literal password is still reported', () => {
+    withTempFile(
+      "const config = { password: 'admin123' };\n",
+      result => assert.ok(result.findings.some(f => f.ruleId === 'hardcoded-secrets'))
+    );
+  });
+
+  test('a bound-parameter placeholder is not a secret', () => {
+    withTempFile(
+      'const q = "SELECT * FROM u WHERE password = ?";\nconst q2 = "... WHERE password = $1";\n',
+      result => assert.ok(!result.findings.some(f => f.ruleId === 'hardcoded-secrets'))
+    );
+  });
+});
+
+describe('findings in test code are weighted down, not hidden', () => {
+  const CRED = "const creds = { password: 'hunter2plaintext' };\n";
+
+  test('a credential in production code keeps its severity', () => {
+    withTempFile(CRED, result => {
+      const f = result.findings.find(x => x.ruleId === 'hardcoded-secrets');
+      assert.ok(f, 'setup: the credential should be found');
+      assert.strictEqual(f.severity, 'critical');
+    }, 'config.js');
+  });
+
+  test('the same credential in a test file drops one level', () => {
+    // Juice Shop reported 27 critical findings from a single test file, which
+    // buries the genuine ones and fails a --severity critical gate for no good
+    // reason. It is still reported — one step down, and it says why.
+    withTempFile(CRED, result => {
+      const f = result.findings.find(x => x.ruleId === 'hardcoded-secrets');
+      assert.ok(f, 'the finding must still be reported, not suppressed');
+      assert.strictEqual(f.severity, 'high');
+      assert.match(f.message, /test or fixture code/);
+    }, 'user.test.js');
+  });
+
+  test('a fixtures directory is treated the same way', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-fx-'));
+    try {
+      const sub = path.join(dir, 'fixtures');
+      fs.mkdirSync(sub);
+      fs.writeFileSync(path.join(sub, 'seed.js'), CRED);
+      const f = scanFixture(dir).findings.find(x => x.ruleId === 'hardcoded-secrets');
+      assert.ok(f);
+      assert.strictEqual(f.severity, 'high');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

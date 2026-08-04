@@ -77,7 +77,11 @@ export const hardcodedSecretsRule: Rule = {
     // `credentials` was here briefly and had to come out: `fetch(url, {
     // credentials: "same-origin" })` is a standard request option, not a secret,
     // and it fired on ordinary frontend code.
-    { regex: /(?:password|passwd|secret|pwd|pass)\s*[:=]\s*['"][^'"]{3,}['"]\s*[,;\n)]?/gi, message: 'Hardcoded password or secret in source', recommendation: 'Use environment variables or a secrets manager (AWS Secrets Manager, HashiCorp Vault, Doppler).', confidence: 'high', falsePositiveRisk: 'medium', matchInStrings: true },
+    // The value must be a literal. `password = '${req.body.password}'` inside a
+    // query string is a SQL injection — already reported as one — not a
+    // hardcoded credential; 219 of Juice Shop's 238 secret findings were this
+    // shape. Placeholders (?, $1, :name) are likewise not secrets.
+    { regex: /(?:password|passwd|secret|pwd|pass)\s*[:=]\s*['"](?!\s*(?:\$\{|\$\d|:\w|\?|%s|%\()) *[^'"$?%]{3,}['"]\s*[,;\n)]?/gi, message: 'Hardcoded password or secret in source', recommendation: 'Use environment variables or a secrets manager (AWS Secrets Manager, HashiCorp Vault, Doppler).', confidence: 'high', falsePositiveRisk: 'medium', matchInStrings: true },
     { regex: /AKIA[0-9A-Z]{16}/g, message: 'Hardcoded AWS Access Key ID', recommendation: 'Use IAM roles, instance profiles, or environment variables. Never commit AWS keys.', confidence: 'certain', falsePositiveRisk: 'low', matchInStrings: true },
     { regex: /(?:ghp_|github_pat_)[A-Za-z0-9_]{36,}/g, message: 'Hardcoded GitHub Personal Access Token', recommendation: 'Use GitHub Actions secrets or environment variables. Rotate this token immediately.', confidence: 'certain', falsePositiveRisk: 'low', matchInStrings: true },
     { regex: /gho_[A-Za-z0-9]{36,}/g, message: 'Hardcoded GitHub OAuth Token', recommendation: 'Rotate immediately. Use OAuth Apps with proper secret storage.', confidence: 'certain', falsePositiveRisk: 'low', matchInStrings: true },

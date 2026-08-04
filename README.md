@@ -657,7 +657,7 @@ npm test          # builds, then runs the suite against dist/
 npm run test:only # skip the rebuild
 ```
 
-196 tests on Node's built-in runner — no test framework dependency. They execute against
+203 tests on Node's built-in runner — no test framework dependency. They execute against
 `dist/`, so a build that doesn't compile fails the suite rather than passing against
 TypeScript nobody ran.
 
