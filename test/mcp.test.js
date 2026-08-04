@@ -28,7 +28,7 @@ function payload(res) {
 }
 
 before(async () => {
-  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-mcp-'));
+  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-mcp-'));
   // Give the sandbox a copy of the vulnerable fixture to scan.
   fs.copyFileSync(path.join(__dirname, 'vulnerable-app.js'), path.join(workDir, 'app.js'));
 
@@ -37,7 +37,7 @@ before(async () => {
     args: [path.join(ROOT, 'dist/mcp/server.js')],
     cwd: workDir,
   });
-  client = new Client({ name: 'vulnscan-test', version: '1.0.0' });
+  client = new Client({ name: 'throughline-test', version: '1.0.0' });
   await client.connect(transport);
 });
 
@@ -48,7 +48,7 @@ after(async () => {
 
 describe('MCP protocol surface', () => {
   test('handshake reports the server identity', () => {
-    assert.strictEqual(client.getServerVersion().name, 'vulnscan');
+    assert.strictEqual(client.getServerVersion().name, 'throughline');
   });
 
   test('every documented tool is registered with a schema', async () => {
@@ -78,7 +78,7 @@ describe('MCP protocol surface', () => {
     );
     assert.deepStrictEqual(
       resources.map(r => r.uri).sort(),
-      ['vulnscan://last-scan', 'vulnscan://rules', 'vulnscan://triage']
+      ['throughline://last-scan', 'throughline://rules', 'throughline://triage']
     );
   });
 });
@@ -132,7 +132,7 @@ describe('MCP triage round-trip', () => {
     const submitted = payload(await client.callTool({
       name: 'submit_triage',
       arguments: {
-        triagedBy: 'vulnscan-test',
+        triagedBy: 'throughline-test',
         verdicts: [{
           findingKey: target.findingKey,
           codeHash: target.codeHash,

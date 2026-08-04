@@ -9,8 +9,8 @@
  *   - Improved: same finding, severity decreased
  *
  * Usage:
- *   vulnscan --diff HEAD~5..HEAD ./src
- *   vulnscan --diff main..feature ./src --format html -o diff-report.html
+ *   throughline --diff HEAD~5..HEAD ./src
+ *   throughline --diff main..feature ./src --format html -o diff-report.html
  */
 
 import { Finding, Severity, ScanResult } from '../types';
@@ -283,7 +283,7 @@ export function materializeRef(ref: string): MaterializedRef {
   const os = require('os');
   const pathMod = require('path');
 
-  const parent = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'vulnscan-ref-'));
+  const parent = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'throughline-ref-'));
   // git worktree requires a path that does not already exist.
   const dir = pathMod.join(parent, 'tree');
 
@@ -332,7 +332,7 @@ export function formatDiffResult(diff: DiffResult, baseRef: string, targetRef: s
 
   lines.push('');
   lines.push('╔══════════════════════════════════════════════════════════╗');
-  lines.push('║     VulnScan Pro — Semantic Diff Analysis               ║');
+  lines.push('║     Throughline — Semantic Diff Analysis               ║');
   lines.push('╚══════════════════════════════════════════════════════════╝');
   lines.push('');
   lines.push(`  Range:  ${baseRef} → ${targetRef}`);

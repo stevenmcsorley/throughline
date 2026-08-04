@@ -48,7 +48,7 @@ export function htmlFormat(result: ScanResult): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VulnScan Pro — Security Report</title>
+<title>Throughline — Security Report</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
@@ -86,7 +86,7 @@ export function htmlFormat(result: ScanResult): string {
 <body>
 <div class="container">
   <div class="header">
-    <h1>VulnScan Pro</h1>
+    <h1>Throughline</h1>
     <p class="subtitle">Advanced Security Vulnerability Analysis Report</p>
     <p class="dim" style="margin-top:0.5rem">Generated ${new Date().toISOString().split('T')[0]}</p>
   </div>
@@ -129,7 +129,7 @@ export function htmlFormat(result: ScanResult): string {
   ` : ''}
 
   <div class="footer">
-    <p>VulnScan Pro v2.0.0 — Static Application Security Testing</p>
+    <p>Throughline v2.0.0 — Static Application Security Testing</p>
     <p>This report contains security findings that should be reviewed by qualified security personnel.</p>
   </div>
 </div>

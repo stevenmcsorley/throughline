@@ -1,10 +1,10 @@
 /**
  * JSON Rule DSL — User-Defined Vulnerability Rules
  *
- * Users drop JSON rule files in `.vulnscan-rules/` and they load
+ * Users drop JSON rule files in `.throughline-rules/` and they load
  * automatically at scan time. No TypeScript needed.
  *
- * Example rule file: .vulnscan-rules/check-api-keys.json
+ * Example rule file: .throughline-rules/check-api-keys.json
  * ```json
  * {
  *   "id": "my-api-key-check",
@@ -98,10 +98,10 @@ interface DslPattern {
 
 // ─── Rule Loader ───────────────────────────────────────────────────────
 
-const RULES_DIR = '.vulnscan-rules';
+const RULES_DIR = '.throughline-rules';
 
 /**
- * Load all user-defined rules from .vulnscan-rules/ directory.
+ * Load all user-defined rules from .throughline-rules/ directory.
  */
 export function loadUserRules(baseDir: string = process.cwd()): Rule[] {
   const rulesDir = path.join(baseDir, RULES_DIR);
@@ -119,14 +119,14 @@ export function loadUserRules(baseDir: string = process.cwd()): Rule[] {
       const def = JSON.parse(raw) as DslRuleDefinition;
 
       if (!def.id || !def.patterns || def.patterns.length === 0) {
-        console.warn(`[vulnscan] Skipping invalid rule: ${file} (missing id or patterns)`);
+        console.warn(`[throughline] Skipping invalid rule: ${file} (missing id or patterns)`);
         continue;
       }
 
       const rule = compileRule(def, filePath);
       rules.push(rule);
     } catch (err: any) {
-      console.warn(`[vulnscan] Error loading rule ${file}: ${err.message}`);
+      console.warn(`[throughline] Error loading rule ${file}: ${err.message}`);
     }
   }
 
@@ -304,7 +304,7 @@ export function validateRule(def: any): string[] {
 // ─── DSL Examples ──────────────────────────────────────────────────────
 
 /**
- * Generate example rule files in .vulnscan-rules/
+ * Generate example rule files in .throughline-rules/
  */
 export function generateExampleRules(baseDir: string = process.cwd()): string[] {
   const rulesDir = path.join(baseDir, RULES_DIR);

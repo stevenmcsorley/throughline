@@ -1,4 +1,4 @@
-# VulnScan Pro
+# Throughline
 
 A production-grade static application security testing (SAST) tool. Multi-engine hybrid analysis combining regex patterns, tree-sitter AST queries, inter-procedural call graphs, code property graphs (CPG), SSA form, points-to analysis, function summaries, entropy-based secret detection, OSV-backed dependency CVE scanning, MCP-driven AI triage, and incremental diff scanning — all in a single Node.js binary.
 
@@ -26,7 +26,7 @@ Driving it from an AI instead? See **[docs/MCP.md](docs/MCP.md)**.
 
 ```bash
 npm install -g .
-vulnscan ./src
+throughline ./src
 ```
 
 ---
@@ -34,7 +34,7 @@ vulnscan ./src
 ## Usage
 
 ```
-vulnscan [options] <paths...>
+throughline [options] <paths...>
 
 Options:
   -f, --format <type>     Output format (default: pretty)
@@ -51,7 +51,7 @@ Options:
 
   --no-entropy            Disable entropy-based secrets detection
   --no-deps               Disable dependency CVE scanning
-  --incremental           Only scan changed files (uses .vulnscan-cache)
+  --incremental           Only scan changed files (uses .throughline-cache)
   --clear-cache           Clear incremental cache
   --git-aware             Only scan files changed in git (HEAD~1..HEAD)
   --git-base <ref>        Git base ref for diff (default: HEAD~1)
@@ -60,7 +60,7 @@ Options:
   --watch                 Watch files for changes and re-scan continuously
                           (requires: npm install chokidar)
   --diff <refs>           Semantic diff between git refs (e.g. HEAD~5..HEAD)
-  --init-rules            Generate example custom rules in .vulnscan-rules/
+  --init-rules            Generate example custom rules in .throughline-rules/
 
   --mcp                   Run as an MCP server on stdio — see docs/MCP.md
   --no-triage             Show findings previously reviewed as false positives
@@ -76,44 +76,44 @@ Options:
 
 ```bash
 # Scan current directory, show critical+high
-vulnscan . -s high
+throughline . -s high
 
 # SARIF output for GitHub Code Scanning
-vulnscan -f sarif -s medium . -o vulnscan-results.sarif
+throughline -f sarif -s medium . -o throughline-results.sarif
 
 # HTML report for stakeholders
-vulnscan -f html -o report.html ./src
+throughline -f html -o report.html ./src
 
 # Specific rules only
-vulnscan -r sql-injection,xss,ssrf ./app
+throughline -r sql-injection,xss,ssrf ./app
 
 # Incremental scan — only files changed since last run
-vulnscan --incremental ./src
+throughline --incremental ./src
 
 # Git-aware scan — only files modified in latest commit
-vulnscan --git-aware --git-base HEAD~3 ./src
+throughline --git-aware --git-base HEAD~3 ./src
 
 # Full scan without dependency CVE check
-vulnscan --no-deps ./src
+throughline --no-deps ./src
 
 # Watch mode — continuous re-scanning on file changes
-vulnscan --watch ./src
+throughline --watch ./src
 
 # Semantic diff — what vulns were introduced/fixed between commits
-vulnscan --diff HEAD~5..HEAD ./src
+throughline --diff HEAD~5..HEAD ./src
 
 # Generate custom rule templates
-vulnscan --init-rules
+throughline --init-rules
 
 # Run as an MCP server so an AI can drive the scanner and triage findings
-vulnscan --mcp
+throughline --mcp
 ```
 
 ---
 
 ## Architecture — Four Analysis Engines
 
-VulnScan Pro runs four analysis engines in sequence. Each engine catches vulnerabilities the others cannot.
+Throughline runs four analysis engines in sequence. Each engine catches vulnerabilities the others cannot.
 
 ### 1. Tree-sitter AST Engine
 **Eliminates false positives.** Parses code into concrete syntax trees using tree-sitter grammars. S-expression queries match vulnerability patterns only in actual code — never in string literals, comments, or dead code. Supports JavaScript, TypeScript, Python, Go, PHP, and Ruby.
@@ -157,7 +157,7 @@ Shannon entropy scoring on all string literals. Detects secrets regex patterns m
 
 ```bash
 # Entropy scanner is on by default. Disable:
-vulnscan --no-entropy ./src
+throughline --no-entropy ./src
 ```
 
 ### 6. Dependency CVE Scanning
@@ -165,11 +165,11 @@ Parses 14 manifest formats (`package.json`, `package-lock.json`, `requirements.t
 
 ```bash
 # Dep scan is on by default. Disable:
-vulnscan --no-deps ./src
+throughline --no-deps ./src
 ```
 
 ### 7. Incremental / Diff Scanning
-SHA-256 content-addressed cache (`.vulnscan-cache/`). Change detection across `added`,
+SHA-256 content-addressed cache (`.throughline-cache/`). Change detection across `added`,
 `modified`, `deleted`, and `unchanged` files. Git-aware mode uses `git diff` for file
 selection. Sub-second re-scans in CI when only a few files changed.
 
@@ -188,24 +188,24 @@ than an assumption that it is clean.
 
 ```bash
 # First scan — populates cache
-vulnscan --incremental ./src
+throughline --incremental ./src
 
 # Second scan — skips unchanged files, instant
-vulnscan --incremental ./src
+throughline --incremental ./src
 
 # Clear cache
-vulnscan --clear-cache --incremental ./src
+throughline --clear-cache --incremental ./src
 
 # Show cache stats
-vulnscan --cache-stats
+throughline --cache-stats
 ```
 
 ### 8. Watch Mode
 Continuous scanning that re-analyzes files on every save. Shows a delta of new/resolved findings.
 
 ```bash
-vulnscan --watch ./src
-vulnscan --watch ./src -s critical     # Only alert on critical
+throughline --watch ./src
+throughline --watch ./src -s critical     # Only alert on critical
 ```
 
 - Debounced re-scanning (300ms after last file change)
@@ -218,13 +218,13 @@ Compare vulnerabilities between git refs to see what was introduced or fixed.
 
 ```bash
 # Diff: what changed in the last commit
-vulnscan --diff HEAD~1..HEAD ./src
+throughline --diff HEAD~1..HEAD ./src
 
 # Diff: what changed between branches
-vulnscan --diff main..feature-branch ./src
+throughline --diff main..feature-branch ./src
 
 # Diff: last 5 commits
-vulnscan --diff HEAD~5..HEAD ./src -s critical
+throughline --diff HEAD~5..HEAD ./src -s critical
 ```
 
 Output classifies every finding:
@@ -235,16 +235,16 @@ Output classifies every finding:
 - **Improved**: same finding, severity decreased
 
 ### 10. Custom Rule DSL (JSON)
-Drop JSON rule files in `.vulnscan-rules/` — no TypeScript needed.
+Drop JSON rule files in `.throughline-rules/` — no TypeScript needed.
 
 ```bash
 # Generate example custom rules
-vulnscan --init-rules
+throughline --init-rules
 
 # Creates:
-#   .vulnscan-rules/check-debug-endpoints.json
-#   .vulnscan-rules/check-unsafe-regex.json
-#   .vulnscan-rules/check-unsafe-eval.json
+#   .throughline-rules/check-debug-endpoints.json
+#   .throughline-rules/check-unsafe-regex.json
+#   .throughline-rules/check-unsafe-eval.json
 ```
 
 Custom rules support:
@@ -282,7 +282,7 @@ Rules load automatically at scan time. No rebuild required.
 
 ## AI Triage (via MCP)
 
-VulnScan does not call a model provider to decide whether a finding is real. It exposes
+Throughline does not call a model provider to decide whether a finding is real. It exposes
 an [MCP](https://modelcontextprotocol.io) server, and **the AI you connect to it is the
 reviewer** — Claude Code, Claude Desktop, Cursor, Windsurf, VS Code, Cline, Zed, or
 anything else that speaks MCP. No API key of its own, and the reviewer has your whole
@@ -290,7 +290,7 @@ repository and the conversation for context instead of one finding at a time.
 
 ```bash
 npm run build
-claude mcp add vulnscan -- node /path/to/security-scanner/dist/mcp/server.js
+claude mcp add throughline -- node /path/to/security-scanner/dist/mcp/server.js
 ```
 
 Then ask: *"Scan this project and tell me which findings are actually exploitable."*
@@ -301,7 +301,7 @@ The loop:
 scan              → findings, each with a findingKey and a codeHash
 get_review_queue  → unreviewed findings + surrounding source + review instructions
    ↓ the AI reads the code and judges each one
-submit_triage     → verdicts persisted to .vulnscan-cache/triage.json
+submit_triage     → verdicts persisted to .throughline-cache/triage.json
 scan (again)      → confirmed false positives are gone
 ```
 
@@ -316,9 +316,9 @@ rule authoring, report export, and exact-match fix application. See **[docs/MCP.
 for per-client setup and the full tool reference.
 
 ```bash
-vulnscan --mcp            # run as an MCP server on stdio
-vulnscan --triage-stats   # what has been reviewed
-vulnscan --no-triage .    # scan ignoring all verdicts
+throughline --mcp            # run as an MCP server on stdio
+throughline --triage-stats   # what has been reviewed
+throughline --no-triage .    # scan ignoring all verdicts
 ```
 
 ---
@@ -353,8 +353,8 @@ All findings mapped to OWASP categories (A01-A10). Coverage summary printed afte
 | **Deps** (1) | Known CVE matching | `lodash@4.17.15` |
 | **Code Quality** (1) | Prototype pollution | `Object.assign(target, req.body)` |
 
-View all rules: `vulnscan --list-rules`
-View coverage: `vulnscan --rule-summary`
+View all rules: `throughline --list-rules`
+View coverage: `throughline --rule-summary`
 
 ---
 
@@ -363,23 +363,23 @@ View coverage: `vulnscan --rule-summary`
 ### GitHub Actions
 
 ```yaml
-- name: VulnScan
+- name: Throughline
   run: |
-    npm install -g vulnscan
-    vulnscan -f sarif -s medium ./src -o vulnscan-results.sarif
+    npm install -g throughline
+    throughline -f sarif -s medium ./src -o throughline-results.sarif
 - name: Upload SARIF
   uses: github/codeql-action/upload-sarif@v3
   with:
-    sarif_file: vulnscan-results.sarif
+    sarif_file: throughline-results.sarif
 ```
 
 ### GitLab CI
 
 ```yaml
-vulnscan:
+throughline:
   script:
-    - npm install -g vulnscan
-    - vulnscan -f sarif -s medium ./src -o gl-sast-report.json
+    - npm install -g throughline
+    - throughline -f sarif -s medium ./src -o gl-sast-report.json
   artifacts:
     reports:
       sast: gl-sast-report.json
@@ -389,7 +389,7 @@ vulnscan:
 ### Generic CI
 
 ```bash
-vulnscan -f json -s high ./src -o scan.json
+throughline -f json -s high ./src -o scan.json
 # Exit code 1 if findings found → pipeline fails
 ```
 
@@ -397,7 +397,7 @@ vulnscan -f json -s high ./src -o scan.json
 
 ```bash
 # .git/hooks/pre-commit
-vulnscan --git-aware --incremental -s critical
+throughline --git-aware --incremental -s critical
 ```
 
 ---
@@ -452,7 +452,7 @@ Regex engine covers all languages with pattern-based rules. Tree-sitter AST elim
 
 ## Configuration
 
-### .vulnscanrc.json (project root)
+### .throughlinerc.json (project root)
 
 ```json
 {
@@ -467,7 +467,7 @@ Regex engine covers all languages with pattern-based rules. Tree-sitter AST elim
 ### Environment Variables
 
 ```bash
-VULNSCAN_CACHE_DIR=.vulnscan-cache  # Incremental cache location
+THROUGHLINE_CACHE_DIR=.throughline-cache  # Incremental cache location
 ```
 
 AI triage needs no keys or endpoints — the reviewing model connects over MCP and brings
@@ -560,7 +560,7 @@ Injection regardless of where it landed, and `.get(`/`.all(`/`.run(` matched wit
 receiver restriction — so `http.get`, `map.get`, and every Express route registration
 were classified as SQL sinks.
 
-Chasing a finding you expected to see? `VULNSCAN_NO_MASK=1` disables the code/data
+Chasing a finding you expected to see? `THROUGHLINE_NO_MASK=1` disables the code/data
 masking so you can tell whether it was suppressed.
 
 ---
@@ -680,7 +680,7 @@ MSYS tar reading `C:` as a remote host) and both passed on Linux.
 
 ## Comparison
 
-| Feature | VulnScan Pro | ESLint | SonarQube | Semgrep | CodeQL |
+| Feature | Throughline | ESLint | SonarQube | Semgrep | CodeQL |
 |---------|-------------|--------|-----------|---------|--------|
 | Zero-config | ✓ | ✗ | ✗ | ✗ | ✗ |
 | No toolchain deps | ✓ | — | ✗ | — | ✗ |

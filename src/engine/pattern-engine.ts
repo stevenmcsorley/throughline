@@ -121,9 +121,9 @@ function maskLine(
   const out: CarryState = { ...carry };
 
   // Escape hatch for diagnosing a suspected false negative: if a finding you
-  // expect is missing, re-run with VULNSCAN_NO_MASK=1 to see whether masking
+  // expect is missing, re-run with THROUGHLINE_NO_MASK=1 to see whether masking
   // hid it.
-  if (kind === 'unknown' || process.env.VULNSCAN_NO_MASK === '1') {
+  if (kind === 'unknown' || process.env.THROUGHLINE_NO_MASK === '1') {
     return { mask, carry: { blockComment: false, template: false } };
   }
 

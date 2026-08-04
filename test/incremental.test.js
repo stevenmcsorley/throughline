@@ -22,7 +22,7 @@ const CLEAN = 'const x = 1;\nmodule.exports = { x };\n';
 const SAFE_SQL = 'function a(db, req) { return db.query("SELECT * FROM u WHERE id = ?", [req.params.id]); }\n';
 
 function sandbox() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-inc-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-inc-'));
   fs.writeFileSync(path.join(dir, 'a.js'), SQLI);
   fs.writeFileSync(path.join(dir, 'b.js'), CMDI);
   fs.writeFileSync(path.join(dir, 'c.js'), CLEAN);
@@ -164,7 +164,7 @@ describe('incremental scanning', () => {
 
       // Simulate a partially deleted cache: drop the per-file findings but keep
       // the manifest claiming those files were scanned and had findings.
-      const findingsDir = path.join(dir, '.vulnscan-cache', 'findings');
+      const findingsDir = path.join(dir, '.throughline-cache', 'findings');
       assert.ok(fs.existsSync(findingsDir), 'setup: findings should be cached on disk');
       for (const f of fs.readdirSync(findingsDir)) fs.unlinkSync(path.join(findingsDir, f));
 

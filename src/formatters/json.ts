@@ -97,10 +97,10 @@ export function sarifFormat(result: ScanResult): string {
     runs: [{
       tool: {
         driver: {
-          name: 'VulnScan',
-          fullName: 'VulnScan Pro — Advanced Security Vulnerability Scanner',
+          name: 'Throughline',
+          fullName: 'Throughline — Advanced Security Vulnerability Scanner',
           version: '2.0.0',
-          informationUri: 'https://github.com/vulnscan',
+          informationUri: 'https://github.com/stevenmcsorley/throughline',
           rules: [...rules.values()],
         },
       },

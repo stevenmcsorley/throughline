@@ -27,7 +27,7 @@ export function prettyFormat(result: ScanResult): string {
 
   lines.push('');
   lines.push(`${C.bold}${C.cyan}  ╔══════════════════════════════════════════════════════╗${C.reset}`);
-  lines.push(`${C.bold}${C.cyan}  ║     VulnScan Pro — Advanced Security Analysis        ║${C.reset}`);
+  lines.push(`${C.bold}${C.cyan}  ║       Throughline — Advanced Security Analysis       ║${C.reset}`);
   lines.push(`${C.bold}${C.cyan}  ╚══════════════════════════════════════════════════════╝${C.reset}`);
   lines.push('');
 

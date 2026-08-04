@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * VulnScan MCP Server
+ * Throughline MCP Server
  *
  * Exposes the whole scanner over the Model Context Protocol so any MCP-capable
  * AI can drive it: scan, filter, export, manage rules, and — the part that used
@@ -9,7 +9,7 @@
  * The triage loop is:
  *   get_review_queue  → findings + source context + what to judge
  *   (the AI reasons)
- *   submit_triage     → verdicts persisted to .vulnscan-cache/triage.json
+ *   submit_triage     → verdicts persisted to .throughline-cache/triage.json
  *   scan              → confirmed false positives are now suppressed, with the
  *                       suppression count always reported
  *
@@ -61,10 +61,10 @@ function handler<A>(fn: (args: A) => unknown | Promise<unknown>) {
 
 export function createServer(): McpServer {
   const server = new McpServer(
-    { name: 'vulnscan', version: '1.1.0' },
+    { name: 'throughline', version: '1.1.0' },
     {
       instructions:
-        'VulnScan is a static application security scanner. Use scan to find vulnerabilities, ' +
+        'Throughline is a static application security scanner. Use scan to find vulnerabilities, ' +
         'then get_review_queue and submit_triage to review them — your verdicts persist and ' +
         'suppress confirmed false positives in later scans. Prefer scan_git_diff when the user ' +
         'is asking about their current changes rather than the whole repository.',
@@ -136,7 +136,7 @@ export function createServer(): McpServer {
   server.registerTool('create_custom_rule', {
     title: 'Create a custom rule',
     description:
-      'Write a project-specific detection rule to .vulnscan-rules/. Patterns are regexes compiled case-insensitively. ' +
+      'Write a project-specific detection rule to .throughline-rules/. Patterns are regexes compiled case-insensitively. ' +
       'Verifies the rule loads before reporting success.',
     inputSchema: {
       id: z.string().describe('Kebab-case unique id, e.g. "internal-token-format".'),
@@ -162,7 +162,7 @@ export function createServer(): McpServer {
 
   server.registerTool('init_example_rules', {
     title: 'Generate example custom rules',
-    description: 'Write starter rule files into .vulnscan-rules/ to use as templates.',
+    description: 'Write starter rule files into .throughline-rules/ to use as templates.',
     inputSchema: {},
   }, handler(() => tools.initExampleRules()));
 
@@ -275,7 +275,7 @@ export function createServer(): McpServer {
 
   // ─── Resources ───────────────────────────────────────────────────────
 
-  server.registerResource('rules', 'vulnscan://rules', {
+  server.registerResource('rules', 'throughline://rules', {
     title: 'Rule catalogue',
     description: 'Every detection rule with severity, CWE, and language coverage.',
     mimeType: 'application/json',
@@ -283,7 +283,7 @@ export function createServer(): McpServer {
     contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(tools.listRules({}), null, 2) }],
   }));
 
-  server.registerResource('last-scan', 'vulnscan://last-scan', {
+  server.registerResource('last-scan', 'throughline://last-scan', {
     title: 'Last scan result',
     description: 'The complete, untruncated findings from the most recent scan in this session.',
     mimeType: 'application/json',
@@ -295,7 +295,7 @@ export function createServer(): McpServer {
     return { contents: [{ uri: uri.href, mimeType: 'application/json', text: body }] };
   });
 
-  server.registerResource('triage', 'vulnscan://triage', {
+  server.registerResource('triage', 'throughline://triage', {
     title: 'Triage verdicts',
     description: 'Persisted review history: what was judged real, what was suppressed, and why.',
     mimeType: 'application/json',
@@ -375,18 +375,18 @@ applying a patch that only hides the pattern from the scanner.`,
   return server;
 }
 
-/** Start the server on stdio. Used by the `vulnscan-mcp` bin and `vulnscan --mcp`. */
+/** Start the server on stdio. Used by the `throughline-mcp` bin and `throughline --mcp`. */
 export async function startStdioServer(): Promise<void> {
   const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdout is the protocol channel — status goes to stderr.
-  console.error('[vulnscan-mcp] ready on stdio');
+  console.error('[throughline-mcp] ready on stdio');
 }
 
 if (require.main === module) {
   startStdioServer().catch(err => {
-    console.error('[vulnscan-mcp] fatal:', err);
+    console.error('[throughline-mcp] fatal:', err);
     process.exit(1);
   });
 }

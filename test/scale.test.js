@@ -45,7 +45,7 @@ module.exports = { handler${i}, transform${i}, render${i} };
 }
 
 function makeCorpus(count) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-scale-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-scale-'));
   for (let i = 0; i < count; i++) {
     fs.writeFileSync(path.join(dir, `mod${i}.js`), sampleModule(i));
   }

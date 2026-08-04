@@ -161,7 +161,7 @@ describe('CLI output plumbing', () => {
   }
 
   test('every format writes to a file and produces non-empty output', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-fmt-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-fmt-'));
     try {
       fs.copyFileSync(path.join(__dirname, 'vulnerable-app.js'), path.join(dir, 'app.js'));
       for (const fmt of ['json', 'sarif', 'html', 'pretty']) {
@@ -176,7 +176,7 @@ describe('CLI output plumbing', () => {
   });
 
   test('SARIF written from a project directory uses paths relative to it', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-rel-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-rel-'));
     try {
       fs.mkdirSync(path.join(dir, 'src'));
       fs.copyFileSync(path.join(__dirname, 'vulnerable-app.js'), path.join(dir, 'src', 'app.js'));

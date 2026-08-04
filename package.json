@@ -1,11 +1,11 @@
 {
-  "name": "vulnscan",
+  "name": "throughline",
   "version": "1.0.0",
   "description": "Standalone security vulnerability scanner for source code",
   "main": "dist/index.js",
   "bin": {
-    "vulnscan": "./dist/index.js",
-    "vulnscan-mcp": "./dist/mcp/server.js"
+    "throughline": "./dist/index.js",
+    "throughline-mcp": "./dist/mcp/server.js"
   },
   "scripts": {
     "build": "tsc",

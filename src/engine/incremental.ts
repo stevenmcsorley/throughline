@@ -5,7 +5,7 @@
  * files that changed. Dramatically improves CI performance.
  *
  * Cache structure:
- *   .vulnscan-cache/
+ *   .throughline-cache/
  *   ├── manifest.json          # Global cache manifest
  *   ├── hashes/                # SHA-256 per file keyed by path+salt
  *   │   ├── a1b2c3d4...json
@@ -84,7 +84,7 @@ export interface ChangeSet {
 
 // ─── Defaults ──────────────────────────────────────────────────────────
 
-const CACHE_DIR = '.vulnscan-cache';
+const CACHE_DIR = '.throughline-cache';
 const MANIFEST_FILE = 'manifest.json';
 const HASHES_DIR = 'hashes';
 const SNAPSHOTS_DIR = 'snapshots';

@@ -23,7 +23,7 @@ const DEFAULT_EXCLUDE = [
   '.turbo', '.parcel-cache', '.svelte-kit', '.angular', 'out', '.serverless',
   // The scanner's own state. Without these an incremental run scans the cache
   // it just wrote, counting its own JSON as newly added source every time.
-  '.vulnscan-cache', '.vulnscan-rules',
+  '.throughline-cache', '.throughline-rules',
 ];
 
 const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -317,7 +317,7 @@ function computeScanHashes(options: ScanOptions, rules: Rule[]): { configHash: s
     crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
 
   // Rule identity includes the pattern sources, so editing a custom rule in
-  // .vulnscan-rules/ invalidates the cache the way editing source does.
+  // .throughline-rules/ invalidates the cache the way editing source does.
   const ruleFingerprints = rules
     .map(r => [
       r.id, r.severity, r.confidence, r.cwe,
@@ -760,7 +760,7 @@ function collectAllFiles(options: ScanOptions): string[] {
       const stat = fs.statSync(resolved);
       if (stat.isDirectory()) {
         // Exclusions prune what the walk *discovers*; they must not reject the
-        // root the user explicitly named. Otherwise `vulnscan /tmp/myproject`
+        // root the user explicitly named. Otherwise `throughline /tmp/myproject`
         // or a checkout under build/ silently scans nothing — the default list
         // contains tmp, temp, out, bin, target and env.
         files.push(...walkDirectory(resolved, extensions, excludePatterns, maxSize, true));

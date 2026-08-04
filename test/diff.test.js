@@ -30,7 +30,7 @@ function hasGit() {
 
 /** Create a repo whose two commits contain the given file contents. */
 function makeRepo(firstContent, secondContent) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-diff-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-diff-'));
   const g = args => execFileSync('git', args, { cwd: dir, stdio: 'pipe', encoding: 'utf-8' });
 
   g(['init', '-q']);
@@ -160,7 +160,7 @@ describe('semantic diff against real git history', { skip: !hasGit() && 'git not
 
 describe('diff outside a git repository', () => {
   test('is refused with a clear message', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-nogit-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-nogit-'));
     try {
       fs.writeFileSync(path.join(dir, 'a.js'), 'const x = 1;\n');
       const { stdout, code } = runDiff(dir, ['--diff', 'HEAD~1..HEAD', '.']);

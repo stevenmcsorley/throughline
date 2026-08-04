@@ -1,10 +1,10 @@
-# VulnScan MCP Server
+# Throughline MCP Server
 
-VulnScan speaks the [Model Context Protocol](https://modelcontextprotocol.io), so any
+Throughline speaks the [Model Context Protocol](https://modelcontextprotocol.io), so any
 MCP-capable AI can drive the scanner directly: run scans, filter findings, manage
 rules, export reports, apply fixes — and triage.
 
-Triage is the part worth understanding. VulnScan does not call a model provider to
+Triage is the part worth understanding. Throughline does not call a model provider to
 decide whether a finding is real. **The AI connected over MCP is the reviewer.** It reads
 the findings and the surrounding source, judges each one, and writes verdicts back. Those
 verdicts persist, and confirmed false positives stop appearing in later scans.
@@ -28,7 +28,7 @@ npm run build
 
 ```bash
 node dist/mcp/server.js
-# → [vulnscan-mcp] ready on stdio
+# → [throughline-mcp] ready on stdio
 ```
 
 It will sit waiting for protocol frames on stdin. Ctrl-C to exit. If you see that line,
@@ -50,7 +50,7 @@ JSON (`C:\\Users\\you\\security-scanner`) or forward slashes.
 One command, from inside the project you want to scan:
 
 ```bash
-claude mcp add vulnscan -- node /path/to/security-scanner/dist/mcp/server.js
+claude mcp add throughline -- node /path/to/security-scanner/dist/mcp/server.js
 ```
 
 Then `/mcp` inside Claude Code to confirm it connected. Add `--scope project` to share
@@ -67,7 +67,7 @@ Edit `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "vulnscan": {
+    "throughline": {
       "command": "node",
       "args": ["/path/to/security-scanner/dist/mcp/server.js"],
       "cwd": "/path/to/the/project/you/want/scanned"
@@ -85,7 +85,7 @@ Restart Claude Desktop. The tools appear under the connectors icon.
 ```json
 {
   "mcpServers": {
-    "vulnscan": {
+    "throughline": {
       "command": "node",
       "args": ["/path/to/security-scanner/dist/mcp/server.js"]
     }
@@ -102,7 +102,7 @@ Settings → MCP to verify it shows as connected.
 ```json
 {
   "mcpServers": {
-    "vulnscan": {
+    "throughline": {
       "command": "node",
       "args": ["/path/to/security-scanner/dist/mcp/server.js"]
     }
@@ -117,7 +117,7 @@ Settings → MCP to verify it shows as connected.
 ```json
 {
   "servers": {
-    "vulnscan": {
+    "throughline": {
       "type": "stdio",
       "command": "node",
       "args": ["/path/to/security-scanner/dist/mcp/server.js"]
@@ -133,7 +133,7 @@ Settings → MCP to verify it shows as connected.
 ```json
 {
   "mcpServers": {
-    "vulnscan": {
+    "throughline": {
       "command": "node",
       "args": ["/path/to/security-scanner/dist/mcp/server.js"],
       "disabled": false
@@ -149,7 +149,7 @@ Settings → MCP to verify it shows as connected.
 ```json
 {
   "context_servers": {
-    "vulnscan": {
+    "throughline": {
       "command": { "path": "node", "args": ["/path/to/security-scanner/dist/mcp/server.js"] }
     }
   }
@@ -159,8 +159,8 @@ Settings → MCP to verify it shows as connected.
 #### Anything else
 
 Any MCP client can launch it. The contract is: run `node dist/mcp/server.js`, speak
-JSON-RPC over stdin/stdout. `vulnscan --mcp` is an equivalent entry point, and
-`npm link` makes `vulnscan-mcp` available on `PATH`.
+JSON-RPC over stdin/stdout. `throughline --mcp` is an equivalent entry point, and
+`npm link` makes `throughline-mcp` available on `PATH`.
 
 To verify a client-independent connection by hand:
 
@@ -169,7 +169,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":
   | node dist/mcp/server.js
 ```
 
-A JSON response containing `"serverInfo":{"name":"vulnscan"...}` means it works.
+A JSON response containing `"serverInfo":{"name":"throughline"...}` means it works.
 
 ---
 
@@ -197,7 +197,7 @@ This is what replaces the usual "SAST tool dumps 200 findings, 180 are noise" pr
 scan                → findings, each with a findingKey and a codeHash
 get_review_queue    → unreviewed findings + surrounding source + a heuristic hint
    ↓ the AI reads the context and decides
-submit_triage       → verdicts stored in .vulnscan-cache/triage.json
+submit_triage       → verdicts stored in .throughline-cache/triage.json
 scan (again)        → confirmed false positives are gone
 ```
 
@@ -223,11 +223,11 @@ malformed verdicts are rejected — the rest still store. Nothing silently becom
 Inspect the store any time:
 
 ```bash
-vulnscan --triage-stats     # counts
-vulnscan --no-triage .      # scan ignoring all verdicts
+throughline --triage-stats     # counts
+throughline --no-triage .      # scan ignoring all verdicts
 ```
 
-or read the `vulnscan://triage` resource.
+or read the `throughline://triage` resource.
 
 ---
 
@@ -264,7 +264,7 @@ Approximate edits to security-relevant code are worse than none.
 | Tool | Purpose |
 |---|---|
 | `list_rules` / `rule_summary` | Rule catalogue and coverage |
-| `create_custom_rule` | Write a project rule to `.vulnscan-rules/`, verifying it loads |
+| `create_custom_rule` | Write a project rule to `.throughline-rules/`, verifying it loads |
 | `init_example_rules` | Starter rule templates |
 | `export_report` | Write json / sarif / html / pretty to disk |
 | `cache_stats` / `clear_cache` | Incremental cache and triage statistics |
@@ -272,11 +272,11 @@ Approximate edits to security-relevant code are worse than none.
 ### Resources
 | URI | Contents |
 |---|---|
-| `vulnscan://rules` | Full rule catalogue |
-| `vulnscan://last-scan` | Complete untruncated findings from the last scan |
-| `vulnscan://triage` | All stored verdicts |
+| `throughline://rules` | Full rule catalogue |
+| `throughline://last-scan` | Complete untruncated findings from the last scan |
+| `throughline://triage` | All stored verdicts |
 
-Tool responses cap inline findings at 40; read `vulnscan://last-scan` for the rest.
+Tool responses cap inline findings at 40; read `throughline://last-scan` for the rest.
 
 ---
 
@@ -296,7 +296,7 @@ the wrong things.
 ## Troubleshooting
 
 **Server not connecting.** Run `node dist/mcp/server.js` directly. If you don't see
-`[vulnscan-mcp] ready on stdio`, run `npm run build` and check for TypeScript errors.
+`[throughline-mcp] ready on stdio`, run `npm run build` and check for TypeScript errors.
 
 **"Cannot find module".** Use an absolute path to `dist/mcp/server.js`. Most clients do
 not resolve relative paths from where you think they do.
@@ -307,7 +307,7 @@ not resolve relative paths from where you think they do.
 **Dependency scanning returns nothing.** It queries `api.osv.dev` over the network. In a
 sandboxed client, pass `deps: false` to skip it.
 
-**Verdicts don't suppress.** Check `vulnscan --triage-stats`. If findings show as stale,
+**Verdicts don't suppress.** Check `throughline --triage-stats`. If findings show as stale,
 the code changed since review — that is the intended behaviour, so review them again.
-Triage state lives in `.vulnscan-cache/triage.json`, relative to the working directory,
+Triage state lives in `.throughline-cache/triage.json`, relative to the working directory,
 so a different `cwd` means a different store.

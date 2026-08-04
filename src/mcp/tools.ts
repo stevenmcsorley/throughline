@@ -1,7 +1,7 @@
 /**
  * MCP tool implementations.
  *
- * Thin adapters over the scanner's public API. Everything the `vulnscan` CLI
+ * Thin adapters over the scanner's public API. Everything the `throughline` CLI
  * can do is reachable from here; nothing in this file re-implements analysis.
  */
 
@@ -30,7 +30,7 @@ import {
 /** Findings inlined in a tool response before truncation kicks in. */
 const MAX_INLINE_FINDINGS = 40;
 
-/** Most recent scan, exposed as the vulnscan://last-scan resource. */
+/** Most recent scan, exposed as the throughline://last-scan resource. */
 let lastScan: { result: ScanResult; at: string; paths: string[] } | null = null;
 
 export function getLastScan() {
@@ -102,7 +102,7 @@ function renderScanResult(result: ScanResult, paths: string[]) {
     triage: result.triage,
     findings: shown.map(summarizeFinding),
     truncated: result.findings.length > shown.length
-      ? `Showing ${shown.length} of ${result.findings.length}. Narrow with severity/rules, or read the vulnscan://last-scan resource for the full set.`
+      ? `Showing ${shown.length} of ${result.findings.length}. Narrow with severity/rules, or read the throughline://last-scan resource for the full set.`
       : undefined,
     scannedPaths: paths,
   };
@@ -168,7 +168,7 @@ export function runEntropyScan(args: { paths?: string[] }) {
 
 export function scanSnippet(args: { code: string; filename: string }) {
   // Write to a temp file so the full engine stack (tree-sitter, CPG) applies.
-  const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'vulnscan-'));
+  const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'throughline-'));
   const file = path.join(dir, path.basename(args.filename));
   try {
     fs.writeFileSync(file, args.code, 'utf-8');
@@ -247,7 +247,7 @@ export function createCustomRule(args: {
     }
   }
 
-  const dir = path.resolve('.vulnscan-rules');
+  const dir = path.resolve('.throughline-rules');
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${args.id}.json`);
   const existed = fs.existsSync(file);
@@ -289,7 +289,7 @@ export function initExampleRules() {
   const created = generateExampleRules();
   return created.length > 0
     ? { created, note: 'Edit these and re-scan; custom rules load automatically.' }
-    : { created: [], note: 'Example rules already exist in .vulnscan-rules/' };
+    : { created: [], note: 'Example rules already exist in .throughline-rules/' };
 }
 
 // ─── Reporting ─────────────────────────────────────────────────────────

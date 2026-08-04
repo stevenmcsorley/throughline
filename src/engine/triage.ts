@@ -21,7 +21,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { Finding, Severity, Confidence } from '../types';
 
-const CACHE_DIR = '.vulnscan-cache';
+const CACHE_DIR = '.throughline-cache';
 const TRIAGE_FILE = 'triage.json';
 const STORE_VERSION = 1;
 

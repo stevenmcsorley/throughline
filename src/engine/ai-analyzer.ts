@@ -88,7 +88,7 @@ export function buildReviewPacket(finding: Finding, contextRadius: number = 12):
 }
 
 /** The review instructions handed to the AI alongside the packets. */
-export const TRIAGE_INSTRUCTIONS = `You are reviewing static analysis findings from VulnScan.
+export const TRIAGE_INSTRUCTIONS = `You are reviewing static analysis findings from Throughline.
 
 For each finding, decide whether it is a genuine, exploitable vulnerability in
 this codebase — not whether the pattern is dangerous in the abstract.

@@ -5,8 +5,8 @@
  * Like a security-focused linter that runs in the background.
  *
  * Usage:
- *   vulnscan --watch ./src
- *   vulnscan --watch ./src -s critical   # Only alert on critical
+ *   throughline --watch ./src
+ *   throughline --watch ./src -s critical   # Only alert on critical
  *
  * Features:
  *   - Debounced re-scanning (300ms default)
@@ -95,7 +95,7 @@ export class FileWatcher {
         /build/,
         /__pycache__/,
         /vendor/,
-        /\.vulnscan-cache/,
+        /\.throughline-cache/,
         /\.min\./,
         /\.bundle\./,
         /coverage/,
@@ -118,7 +118,7 @@ export class FileWatcher {
         this.scheduleScan();
       })
       .on('error', (err: Error) => {
-        console.error('[vulnscan] Watcher error:', err.message);
+        console.error('[throughline] Watcher error:', err.message);
       });
   }
 
@@ -201,7 +201,7 @@ export class FileWatcher {
       // Show scan header
       const now = new Date().toLocaleTimeString();
       console.log(`\n${'─'.repeat(60)}`);
-      console.log(`  VulnScan Watch — ${now} — Scan #${this.scanCount}`);
+      console.log(`  Throughline Watch — ${now} — Scan #${this.scanCount}`);
       console.log(`  Files: ${result.filesScanned}  |  Findings: ${result.findings.length}`);
       console.log(`${'─'.repeat(60)}`);
 
@@ -219,7 +219,7 @@ export class FileWatcher {
       this.lastFindings = result.findings;
       this.options.onScan(result);
     } catch (err: any) {
-      console.error('[vulnscan] Scan error:', err.message);
+      console.error('[throughline] Scan error:', err.message);
     }
   }
 
@@ -269,8 +269,8 @@ export class FileWatcher {
 
   private startPolling(): void {
     // Fallback: poll using fs.watch on directories
-    console.log('[vulnscan] Using polling fallback (check every 2 seconds)');
-    console.log('[vulnscan] Press Ctrl+C to stop\n');
+    console.log('[throughline] Using polling fallback (check every 2 seconds)');
+    console.log('[throughline] Press Ctrl+C to stop\n');
 
     // Do initial scan
     this.scanCount++;

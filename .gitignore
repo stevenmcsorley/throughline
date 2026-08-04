@@ -6,7 +6,7 @@ dist/
 
 # Scanner state — machine-local, and triage.json records verdicts tied to a
 # specific working copy. Commit it deliberately if you want team-shared triage.
-.vulnscan-cache/
+.throughline-cache/
 
 *.log
 *.tsbuildinfo
@@ -14,8 +14,8 @@ coverage/
 .nyc_output/
 
 # Reports
-vulnscan-results.sarif
-vulnscan-report.html
+throughline-results.sarif
+throughline-report.html
 report.html
 
 .DS_Store

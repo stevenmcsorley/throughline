@@ -35,7 +35,7 @@ interface Session {
 let session: Session | null = null;
 
 export function beginScanSession(budgetBytes?: number): void {
-  const envBudget = Number(process.env.VULNSCAN_SOURCE_CACHE_BYTES);
+  const envBudget = Number(process.env.THROUGHLINE_SOURCE_CACHE_BYTES);
   session = {
     contents: new Map(),
     lines: new Map(),

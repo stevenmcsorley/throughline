@@ -24,7 +24,7 @@ const { validateVerdict } = require(path.join(ROOT, 'dist/engine/ai-analyzer.js'
 
 /** Write `code` to a throwaway file, scan it, and hand the result to `check`. */
 function withTempFile(code, check, filename = 'sample.js') {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-case-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-case-'));
   try {
     const file = path.join(dir, filename);
     fs.writeFileSync(file, code);
@@ -210,7 +210,7 @@ describe('precision: parameterized queries are not injection', () => {
   });
 
   test('string-concatenated SQL is still reported', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-sqlfp-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-sqlfp-'));
     try {
       const file = path.join(dir, 'unsafe.js');
       fs.writeFileSync(file,
@@ -224,7 +224,7 @@ describe('precision: parameterized queries are not injection', () => {
   });
 
   test('a template literal with interpolation is still reported', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-sqltpl-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-sqltpl-'));
     try {
       const file = path.join(dir, 'unsafe2.js');
       fs.writeFileSync(file,
@@ -286,7 +286,7 @@ describe('precision: parameterized queries are not injection', () => {
   });
 
   test('a mix of safe and unsafe queries in one function is still reported', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-sqlmix-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-sqlmix-'));
     try {
       const file = path.join(dir, 'mixed.js');
       fs.writeFileSync(file,
@@ -368,9 +368,9 @@ describe('precision: patterns match code, not prose', () => {
       `expected the k8s misconfigurations, got ${result.findings.length}`);
   });
 
-  test('VULNSCAN_NO_MASK=1 restores unmasked matching', () => {
-    const prev = process.env.VULNSCAN_NO_MASK;
-    process.env.VULNSCAN_NO_MASK = '1';
+  test('THROUGHLINE_NO_MASK=1 restores unmasked matching', () => {
+    const prev = process.env.THROUGHLINE_NO_MASK;
+    process.env.THROUGHLINE_NO_MASK = '1';
     try {
       withTempFile(
         '// this mentions md5 in a comment\nconst x = 1;\n',
@@ -378,8 +378,8 @@ describe('precision: patterns match code, not prose', () => {
           'the escape hatch should surface what masking hides, for diagnosis')
       );
     } finally {
-      if (prev === undefined) delete process.env.VULNSCAN_NO_MASK;
-      else process.env.VULNSCAN_NO_MASK = prev;
+      if (prev === undefined) delete process.env.THROUGHLINE_NO_MASK;
+      else process.env.THROUGHLINE_NO_MASK = prev;
     }
   });
 });
@@ -437,7 +437,7 @@ describe('semantic diff', () => {
 
 describe('triage store', () => {
   function inTempStore(fn) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-triage-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-triage-'));
     try { return fn(dir); } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   }
 
@@ -501,8 +501,8 @@ describe('triage store', () => {
   }));
 
   test('a corrupt store degrades to empty rather than failing the scan', () => inTempStore(dir => {
-    fs.mkdirSync(path.join(dir, '.vulnscan-cache'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.vulnscan-cache', 'triage.json'), '{ not json', 'utf-8');
+    fs.mkdirSync(path.join(dir, '.throughline-cache'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.throughline-cache', 'triage.json'), '{ not json', 'utf-8');
     const store = triage.loadTriageStore(dir);
     assert.deepStrictEqual(store.verdicts, {});
   }));
@@ -714,7 +714,7 @@ describe('precision: false positives found by scanning a real repository', () =>
 describe('explicitly requested paths are always scanned', () => {
   // Found by CI on Linux, not reachable locally on Windows. The default exclude
   // list contains `tmp`, `temp`, `out`, `bin`, `target` and `env`, and those
-  // patterns were tested against the absolute path — so `vulnscan /tmp/project`
+  // patterns were tested against the absolute path — so `throughline /tmp/project`
   // scanned nothing at all, silently. On Windows the temp directory is
   // `...\AppData\Local\Temp\...`, which did not match the lowercase `tmp`, so
   // every local run looked fine.
@@ -722,7 +722,7 @@ describe('explicitly requested paths are always scanned', () => {
     'function h(req) { cp.exec("ls " + req.query.d); }\n';
 
   function inTree(build, check) {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-excl-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'throughline-excl-'));
     try {
       check(build(root), root);
     } finally {

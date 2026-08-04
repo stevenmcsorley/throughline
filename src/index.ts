@@ -17,10 +17,10 @@ import * as fs from 'fs';
 
 function printHelp(): void {
   console.log(`
-VulnScan Pro — Advanced Static Security Vulnerability Scanner
-==============================================================
+Throughline — Advanced Static Security Vulnerability Scanner
+============================================================
 
-Usage: vulnscan [options] <paths...>
+Usage: throughline [options] <paths...>
 
 Options:
   -f, --format <type>     Output format (default: pretty)
@@ -40,7 +40,7 @@ Options:
 
   --no-entropy            Disable entropy-based secrets detection
   --no-deps               Disable dependency CVE scanning
-  --incremental           Only scan changed files (uses .vulnscan-cache)
+  --incremental           Only scan changed files (uses .throughline-cache)
   --clear-cache           Clear incremental cache before scanning
   --git-aware             Only scan files changed in git (HEAD~1..HEAD)
   --git-base <ref>        Git base ref for diff (default: HEAD~1)
@@ -49,7 +49,7 @@ Options:
   --watch                 Watch files for changes and re-scan continuously
   --diff <refs>           Semantic diff: show vulns introduced/resolved between refs
                           e.g. --diff HEAD~5..HEAD or --diff main..feature
-  --init-rules            Generate example custom rules in .vulnscan-rules/
+  --init-rules            Generate example custom rules in .throughline-rules/
 
   --no-triage             Show findings previously reviewed as false positives
   --triage-stats          Show stored AI/human triage verdicts
@@ -63,28 +63,33 @@ Options:
   -h, --help              Show this help
 
 Examples:
-  vulnscan .                                    Scan current directory
-  vulnscan -s high -f json -o report.json src/  JSON report for high+ findings
-  vulnscan -r sql-injection,xss,ssrf ./app       Specific rules only
-  vulnscan -f html -o report.html ./src          Interactive HTML report
-  vulnscan -f sarif -s medium . > results.sarif   For GitHub Code Scanning
+  throughline .                                    Scan current directory
+  throughline -s high -f json -o report.json src/  JSON report for high+ findings
+  throughline -r sql-injection,xss,ssrf ./app       Specific rules only
+  throughline -f html -o report.html ./src          Interactive HTML report
+  throughline -f sarif -s medium . > results.sarif   For GitHub Code Scanning
 
 CI/CD Integration:
-  vulnscan -f sarif -s medium . > vulnscan-results.sarif
+  throughline -f sarif -s medium . > throughline-results.sarif
   # Exit code 1 when findings found — fails pipeline automatically
 `);
 }
 
 function printRules(): void {
   const { allRules } = require('./rules');
+  // Custom rules from .throughline-rules/ are part of the active rule set, so
+  // they belong in the listing — omitting them made `--list-rules` disagree
+  // with what a scan actually runs.
+  const userRules = loadUserRules();
+  const userIds = new Set(userRules.map((r: any) => r.id));
   const bySev: Record<string, any[]> = {};
-  for (const rule of allRules) {
+  for (const rule of [...allRules, ...userRules]) {
     if (!bySev[rule.severity]) bySev[rule.severity] = [];
     bySev[rule.severity].push(rule);
   }
 
   const order = ['critical', 'high', 'medium', 'low', 'info'];
-  console.log('\nVulnScan Pro Rules');
+  console.log('\nThroughline Rules');
   console.log('═'.repeat(90));
 
   for (const sev of order) {
@@ -93,15 +98,19 @@ function printRules(): void {
     for (const rule of rules) {
       const sevLabel = sev.toUpperCase().padEnd(8);
       const mitigation = rule.mitreAttack ? `${rule.mitreAttack.tactic}/${rule.mitreAttack.technique}` : '';
-      console.log(`  ${sevLabel} ${rule.id.padEnd(30)} ${rule.cwe.padEnd(12)} ${rule.owasp.substring(0, 25).padEnd(25)} ${mitigation}`);
+      const origin = userIds.has(rule.id) ? ' [custom]' : '';
+      console.log(`  ${sevLabel} ${rule.id.padEnd(30)} ${rule.cwe.padEnd(12)} ${rule.owasp.substring(0, 25).padEnd(25)} ${mitigation}${origin}`);
     }
+  }
+  if (userRules.length > 0) {
+    console.log(`\n  ${userRules.length} custom rule(s) loaded from .throughline-rules/`);
   }
   console.log('');
 }
 
 function printRuleSummary(): void {
   const summary = getRuleSummary();
-  console.log('\nVulnScan Pro — Rule Coverage Summary');
+  console.log('\nThroughline — Rule Coverage Summary');
   console.log('═'.repeat(50));
   console.log(`  Total rules:       ${summary.totalRules}`);
   console.log(`  Unique CWEs:       ${summary.cwes.length}`);
@@ -158,7 +167,7 @@ function parseArgs(argv: string[]): { options: Record<string, string>; paths: st
 
 async function handleWatchMode(options: Record<string, string>, paths: string[]): Promise<void> {
   const scanPaths = paths.length > 0 ? paths : ['.'];
-  console.log('\nVulnScan Pro — Watch Mode');
+  console.log('\nThroughline — Watch Mode');
   console.log('═'.repeat(50));
   console.log(`Watching: ${scanPaths.join(', ')}`);
   console.log('Press Ctrl+C to stop\n');
@@ -167,7 +176,7 @@ async function handleWatchMode(options: Record<string, string>, paths: string[])
     paths: scanPaths,
     debounceMs: 300,
     clearScreen: true,
-    onReady: () => console.log('[vulnscan] Watcher ready, waiting for changes...\n'),
+    onReady: () => console.log('[throughline] Watcher ready, waiting for changes...\n'),
     onScan: () => {},
   });
 
@@ -208,7 +217,7 @@ function handleDiffMode(options: Record<string, string>, paths: string[]): void 
   const baseRef = parts[0] || 'HEAD~1';
   const targetRef = parts[1] || 'HEAD';
 
-  console.log(`\nVulnScan Pro — Semantic Diff: ${baseRef} → ${targetRef}`);
+  console.log(`\nThroughline — Semantic Diff: ${baseRef} → ${targetRef}`);
   console.log('═'.repeat(50));
 
   if (!isGitRepository()) {
@@ -289,15 +298,15 @@ function printTriageStats(): void {
   const { loadTriageStore, triageStats } = require('./engine/triage');
   const store = loadTriageStore();
   const stats = triageStats(store);
-  console.log('\nVulnScan Triage Verdicts');
+  console.log('\nThroughline Triage Verdicts');
   console.log('═'.repeat(50));
   console.log(`  Total reviewed:    ${stats.total}`);
   console.log(`  Confirmed real:    ${stats.confirmedReal}`);
   console.log(`  False positives:   ${stats.falsePositives}  (hidden unless --no-triage)`);
   console.log(`  With fixes:        ${stats.withFixes}`);
   if (stats.total === 0) {
-    console.log('\n  Nothing reviewed yet. Connect an AI via "vulnscan --mcp" (see docs/MCP.md)');
-    console.log('  and ask it to triage — verdicts are stored in .vulnscan-cache/triage.json');
+    console.log('\n  Nothing reviewed yet. Connect an AI via "throughline --mcp" (see docs/MCP.md)');
+    console.log('  and ask it to triage — verdicts are stored in .throughline-cache/triage.json');
   }
   console.log('');
 }
@@ -309,7 +318,7 @@ function main(): void {
   if (options.mcp) {
     const { startStdioServer } = require('./mcp/server');
     startStdioServer().catch((err: Error) => {
-      console.error('[vulnscan-mcp] fatal:', err.message);
+      console.error('[throughline-mcp] fatal:', err.message);
       process.exit(1);
     });
     return;
@@ -330,7 +339,7 @@ function main(): void {
       }
       console.log('\nEdit these files and re-run the scanner. Custom rules load automatically.\n');
     } else {
-      console.log('\nExample rules already exist in .vulnscan-rules/\n');
+      console.log('\nExample rules already exist in .throughline-rules/\n');
     }
     process.exit(0);
   }
@@ -350,7 +359,7 @@ function main(): void {
   // Show cache stats
   if (options.cacheStats) {
     const stats = cacheStats();
-    console.log('\nVulnScan Incremental Cache');
+    console.log('\nThroughline Incremental Cache');
     console.log('═'.repeat(50));
     console.log(`  Cached files:  ${stats.totalFiles}`);
     console.log(`  Total size:    ${(stats.totalSize / 1024 / 1024).toFixed(2)} MB`);
@@ -362,7 +371,7 @@ function main(): void {
 
   if (paths.length === 0) {
     console.error('Error: No paths specified. Use "." to scan current directory.');
-    console.error('Run "vulnscan --help" for usage.');
+    console.error('Run "throughline --help" for usage.');
     process.exit(1);
   }
 

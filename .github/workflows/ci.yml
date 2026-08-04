@@ -67,12 +67,12 @@ jobs:
       # Dogfooding: the scanner runs against its own source. --no-deps keeps the
       # job hermetic (dependency scanning calls out to OSV.dev).
       - name: Scan own source
-        run: node dist/index.js -f sarif -o vulnscan.sarif --no-deps src/
+        run: node dist/index.js -f sarif -o throughline.sarif --no-deps src/
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: vulnscan.sarif
+          sarif_file: throughline.sarif
 
       # Report findings without failing the build. Flip to `-s high` once the
       # remaining findings are triaged, so regressions become blocking.
