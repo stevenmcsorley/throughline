@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is not optional here: two shipped bugs were Windows-only —
+        # `^` being cmd.exe's escape character, and MSYS tar reading `C:` as a
+        # remote host. Both passed on Linux.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The diff tests build throwaway repos, but a real history makes the
+          # self-scan step below able to use --diff too.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # tree-sitter-php declares a peer of tree-sitter ^0.22.4 while the project
+      # uses 0.25.x, so a plain `npm ci` fails resolution.
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test:only
+
+      - name: Configure git identity for diff tests
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+          git config --global init.defaultBranch main
+
+  self-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
+
+      # Dogfooding: the scanner runs against its own source. --no-deps keeps the
+      # job hermetic (dependency scanning calls out to OSV.dev).
+      - name: Scan own source
+        run: node dist/index.js -f sarif -o vulnscan.sarif --no-deps src/
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: vulnscan.sarif
+
+      # Report findings without failing the build. Flip to `-s high` once the
+      # remaining findings are triaged, so regressions become blocking.
+      - name: Report high-severity findings
+        continue-on-error: true
+        run: node dist/index.js -s high --no-deps src/

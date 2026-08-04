@@ -1,0 +1,29 @@
+{
+  "id": "unsafe-regex",
+  "name": "Potentially Unsafe Regex (ReDoS)",
+  "severity": "medium",
+  "description": "Regex patterns with nested quantifiers that may cause ReDoS",
+  "patterns": [
+    {
+      "regex": "\\/\\(.*\\+.*\\).*\\+.*\\/",
+      "message": "Regex with nested quantifiers — potential ReDoS vulnerability",
+      "recommendation": "Rewrite regex to avoid nested quantifiers. Use atomic groups or possessive quantifiers if available."
+    }
+  ],
+  "extensions": [
+    ".js",
+    ".ts",
+    ".py",
+    ".go",
+    ".java",
+    ".rb",
+    ".php",
+    ".cs"
+  ],
+  "cwe": "CWE-1333",
+  "owasp": "A03:2021-Injection",
+  "references": [
+    "https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS"
+  ],
+  "falsePositiveRisk": "medium"
+}

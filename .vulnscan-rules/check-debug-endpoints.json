@@ -1,0 +1,24 @@
+{
+  "id": "debug-endpoints",
+  "name": "Debug Endpoint Detection",
+  "severity": "high",
+  "description": "Detects debug/test endpoints in production code",
+  "patterns": [
+    {
+      "regex": "app\\.(?:get|post|put|delete)\\s*\\(\\s*['\"]/(?:debug|test|admin)",
+      "message": "Debug/test endpoint detected in route definition",
+      "recommendation": "Remove debug endpoints before deploying to production."
+    }
+  ],
+  "extensions": [
+    ".js",
+    ".ts",
+    ".py"
+  ],
+  "cwe": "CWE-489",
+  "owasp": "A05:2021-Security Misconfiguration",
+  "references": [
+    "https://cwe.mitre.org/data/definitions/489.html"
+  ],
+  "falsePositiveRisk": "low"
+}

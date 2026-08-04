@@ -1,0 +1,12 @@
+# Normalise line endings in the repository. CI runs on Linux, Windows and
+# macOS, and two shipped bugs were already Windows-specific — mixed endings
+# would add a second axis of platform difference for no benefit.
+* text=auto eol=lf
+
+# Test fixtures are compared byte-for-byte in places; keep them stable.
+test/fixtures/** text eol=lf
+
+# Binary
+*.png binary
+*.woff2 binary
+*.ico binary

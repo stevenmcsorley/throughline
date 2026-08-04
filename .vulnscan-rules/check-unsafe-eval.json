@@ -1,0 +1,27 @@
+{
+  "id": "unsafe-dynamic-eval",
+  "name": "Dynamic Code Execution",
+  "severity": "critical",
+  "description": "Detects eval/new Function with any variable interpolation",
+  "patterns": [
+    {
+      "regex": "eval\\s*\\(\\s*[`'\"]",
+      "message": "eval() called with potentially dynamic content",
+      "recommendation": "Never use eval() with dynamic content. Use JSON.parse() for data parsing."
+    },
+    {
+      "regex": "new\\s+Function\\s*\\([^)]*\\$\\{",
+      "message": "new Function() with template literal — arbitrary code execution",
+      "recommendation": "Avoid dynamic code generation entirely."
+    }
+  ],
+  "extensions": [
+    ".js",
+    ".ts"
+  ],
+  "cwe": "CWE-95",
+  "owasp": "A03:2021-Injection",
+  "references": [
+    "https://cwe.mitre.org/data/definitions/95.html"
+  ]
+}
