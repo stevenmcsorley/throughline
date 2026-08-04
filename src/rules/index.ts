@@ -9,7 +9,9 @@ import { sstiRule, ldapInjectionRule, graphqlInjectionRule, httpParamPollutionRu
 import { insecureCryptoRule, hardcodedSecretsRule } from './crypto/index';
 
 // Auth
-import { insecureJwtRule, csrfRule, idorRule, massAssignmentRule, missingAuthRule } from './auth/index';
+import { insecureJwtRule, csrfRule, massAssignmentRule, missingAuthRule } from './auth/index';
+import { idorRule } from './auth/idor';
+import { disabledSecurityControlRule } from './auth/disabled-controls';
 
 // Web
 import { xssRule, ssrfRule, openRedirectRule, corsMisconfigRule, clickjackingRule, cachePoisoningRule } from './web/index';
@@ -53,6 +55,7 @@ export const allRules: Rule[] = [
   terraformSecurityRule,
   dependencyScanRule,
   raceConditionRule,
+  disabledSecurityControlRule,
 
   // ─── Medium ───
   openRedirectRule,

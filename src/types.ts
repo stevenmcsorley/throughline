@@ -141,6 +141,15 @@ export interface PatternRule {
    */
   matchInStrings?: boolean;
   /**
+   * Match *only* inside comments — the inverse of the default.
+   *
+   * Used to detect security controls that were commented out rather than
+   * removed. A commented-out CSRF or helmet registration is a protection the
+   * application no longer has, and it is invisible to every other rule
+   * precisely because comments are masked.
+   */
+  onlyInComments?: boolean;
+  /**
    * Only apply this pattern when the file as a whole matches. Lets a narrow
    * pattern stay narrow: `maxDepth: 15` is only a GraphQL depth-limit finding
    * in a file that actually uses GraphQL, and is otherwise ordinary config.

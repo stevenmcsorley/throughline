@@ -40,7 +40,7 @@ export const xssRule: Rule = {
     // line, so a trailing semicolon defeated it and `location.href = "/lab";`
     // was reported as DOM XSS. 102 of 117 XSS findings on one benchmark were
     // this single pattern firing on static strings.
-    { regex: /location\s*\.\s*(?:href|search|hash|pathname)\s*=\s*(?!\s*["'][^"']*["'])/gi, message: 'location redirect with dynamic content — DOM XSS (javascript: URI)', recommendation: 'Validate URL starts with http:// or https://. Block javascript: and data: URI schemes.', confidence: 'high', falsePositiveRisk: 'low' },
+    { regex: /location\s*\.\s*(?:href|search|hash|pathname)\s*=(?![=>])\s*(?!\s*["'][^"']*["'])/gi, message: 'location redirect with dynamic content — DOM XSS (javascript: URI)', recommendation: 'Validate URL starts with http:// or https://. Block javascript: and data: URI schemes.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /\$\([^)]*\)\s*\.html\s*\(\s*(?!["'][^"']*$)/g, message: 'jQuery .html() with dynamic content — XSS risk', recommendation: 'Use .text() instead. If HTML is needed, use DOMPurify or similar sanitization.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /(?:v-html|ng-bind-html|\[innerHTML\])\s*=/gi, message: 'Framework HTML binding (v-html/ng-bind-html/[innerHTML]) — XSS risk', recommendation: 'Avoid raw HTML bindings. Use text bindings. If essential, sanitize with a trusted library.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /(<script[^>]*>.*\$\{|<script[^>]*>.*`.*\$\{)/g, message: 'Template literal in script tag — potential stored/reflected XSS', recommendation: 'Never interpolate user data directly into script tags. Use data attributes and JavaScript to read them.', confidence: 'high', falsePositiveRisk: 'low' },
@@ -61,7 +61,11 @@ export const ssrfRule: Rule = {
   references: ['https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/'],
   extensions: ['.js', '.ts', '.py', '.php', '.rb', '.java', '.go', '.cs'],
   patterns: [
-    { regex: /(?:fetch|axios|got|request|superagent|needle|node-fetch)\s*\([^)]*\b(?:req\.(?:query|params|body)|request\.(?:query|params|body))/gi, message: 'HTTP request to user-controlled URL — SSRF risk', recommendation: 'Validate URLs against an allowlist. Block internal IPs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16).', confidence: 'high', falsePositiveRisk: 'low' },
+    // `(?<![\w.])` is load-bearing: without it `request` matched inside
+    // `transport.handleRequest(req, res, req.body)`, reporting an MCP transport
+    // call as SSRF. The client names are also short enough (`got`, `needle`)
+    // that they turn up inside unrelated identifiers.
+    { regex: /(?<![\w.])(?:fetch|axios|got|request|superagent|needle|node-fetch)\s*\([^)]*\b(?:req\.(?:query|params|body)|request\.(?:query|params|body))/gi, message: 'HTTP request to user-controlled URL — SSRF risk', recommendation: 'Validate URLs against an allowlist. Block internal IPs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16).', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /https?\.(?:get|request|createServer|Agent)\s*\([^)]*\b(?:req\.|request\.|params|query)/gi, message: 'Node.js http.get/request with user-controlled URL — SSRF', recommendation: 'Parse and validate the hostname before making requests. Use dns.resolve() to check for internal IPs.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /(?:requests\.(?:get|post|put|delete|head|patch|request)|urllib\.request\.urlopen|httpx\.(?:get|post))\s*\([^)]*\b(?:request\.(?:args|form|data|json))/gi, message: 'Python HTTP request with user-controlled URL — SSRF', recommendation: 'Validate URLs with urlparse. Reject internal/private hosts. Use a URL allowlist.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /curl_setopt\s*\([^,]*,\s*CURLOPT_URL\s*,\s*\$_(?:GET|POST|REQUEST)/gi, message: 'PHP cURL URL from user input — SSRF', recommendation: 'Validate URL against allowlist. Use filter_var($url, FILTER_VALIDATE_URL) and check the host before curl_exec.', confidence: 'high', falsePositiveRisk: 'low' },

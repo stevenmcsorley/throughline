@@ -269,16 +269,30 @@ export function maskDataSpans(line: string, kind: LangKind): boolean[] {
 // rules. Both are memoised, since ~150 patterns are applied per file.
 const maskCache = new WeakMap<string[], Map<string, boolean[][]>>();
 
-function masksFor(lines: string[], kind: LangKind, commentsOnly: boolean): boolean[][] {
+/**
+ * Which spans a pattern is forbidden to match in.
+ *
+ *  - `code-only`     mask strings, regex literals and comments (the default)
+ *  - `skip-comments` mask comments only — secret rules read string contents
+ *  - `comments-only` mask everything *but* comments, so a rule can look at
+ *                    disabled code that every other rule deliberately ignores
+ */
+type MaskMode = 'code-only' | 'skip-comments' | 'comments-only';
+
+function masksFor(lines: string[], kind: LangKind, mode: MaskMode): boolean[][] {
   let perFile = maskCache.get(lines);
   if (!perFile) { perFile = new Map(); maskCache.set(lines, perFile); }
 
-  const key = `${kind}:${commentsOnly}`;
+  const key = `${kind}:${mode}`;
   let masks = perFile.get(key);
   if (!masks) {
     // One sequential pass over the file — multi-line constructs need the
     // ordering, and the result is reused across every pattern.
-    masks = maskFile(lines, kind, commentsOnly);
+    const commentMask = maskFile(lines, kind, mode !== 'code-only');
+    masks = mode === 'comments-only'
+      // Invert: everything outside a comment is off-limits.
+      ? commentMask.map(row => row.map(inComment => !inComment))
+      : commentMask;
     perFile.set(key, masks);
   }
   return masks;
@@ -300,7 +314,7 @@ export function matchIsInData(
 ): boolean {
   const kind = languageKind(pathExtname(filePath));
   if (kind === 'unknown') return false;
-  const masks = masksFor(lines, kind, false);
+  const masks = masksFor(lines, kind, 'code-only');
   const mask = masks[lineIndex];
   if (!mask) return false;
   return matchIsData(mask, column, length);
@@ -346,7 +360,13 @@ export function applyPatternRule(
   // still skip comments, which are prose *about* credentials. Blanket-disabling
   // the mask made this rule match its own documentation.
   const kind = languageKind(pathExtname(filePath));
-  const masks = kind === 'unknown' ? null : masksFor(lines, kind, pattern.matchInStrings === true);
+  const mode: MaskMode =
+    pattern.onlyInComments ? 'comments-only' :
+    pattern.matchInStrings ? 'skip-comments' : 'code-only';
+  // A comments-only rule needs comment syntax, so an unknown language can
+  // never satisfy it — scanning verbatim there would match live code.
+  if (pattern.onlyInComments && kind === 'unknown') return findings;
+  const masks = kind === 'unknown' ? null : masksFor(lines, kind, mode);
 
   // A pattern can require the file to establish context before it applies.
   if (pattern.requiresFileContext) {

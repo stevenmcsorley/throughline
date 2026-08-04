@@ -852,3 +852,121 @@ describe('precision: false positives found by scanning benchmark applications', 
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('detection: security controls that were commented out', () => {
+  // Every other rule masks comments so that documentation and disabled code do
+  // not generate noise. That leaves a blind spot: a protection commented out
+  // for debugging and never restored. NodeGoat disables CSRF, helmet and
+  // template escaping exactly this way, and none of it was detected.
+
+  test('commented-out CSRF middleware is reported', () => {
+    withTempFile(
+      'const app = express();\n' +
+      '/*\n// Fix for CSRF\napp.use(csrf());\n*/\napp.listen(3000);\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'disabled-security-control'),
+        'a disabled CSRF registration is a missing protection, not documentation')
+    );
+  });
+
+  test('commented-out helmet headers are reported', () => {
+    withTempFile(
+      'const app = express();\n// app.use(helmet.frameguard());\napp.listen(3000);\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'disabled-security-control'))
+    );
+  });
+
+  test('commented-out cookie hardening is reported', () => {
+    withTempFile(
+      'app.use(session({\n  secret: s,\n  /* cookie: { httpOnly: true } */\n}));\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'disabled-security-control'))
+    );
+  });
+
+  test('live security middleware is not reported', () => {
+    withTempFile(
+      'const app = express();\napp.use(helmet());\napp.use(csrf());\napp.listen(3000);\n',
+      result => assert.ok(!result.findings.some(f => f.ruleId === 'disabled-security-control'),
+        'enabled protections must never be reported as disabled')
+    );
+  });
+
+  test('prose mentioning a control is not reported', () => {
+    // The pattern requires call syntax, so discussion does not trigger it.
+    withTempFile(
+      '// We should think about CSRF protection and helmet at some point.\n' +
+      '// See the security review notes on csrf tokens.\nconst x = 1;\n',
+      result => assert.deepStrictEqual(result.findings.map(f => f.ruleId), [])
+    );
+  });
+});
+
+describe('detection: insecure direct object reference', () => {
+  test('an owner id taken from the request is reported', () => {
+    withTempFile(
+      'router.get("/allocations/:userId", (req, res) => {\n' +
+      '  const { userId } = req.params;\n' +
+      '  return dao.getByUserId(userId, (e, r) => res.json(r));\n' +
+      '});\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'idor'),
+        'taking the owner id from the URL is the classic IDOR shape')
+    );
+  });
+
+  test('a multi-line destructure is still matched', () => {
+    // Real handlers spread this over several lines, which a per-line scan
+    // cannot see — NodeGoat's A4 was missed for exactly this reason.
+    withTempFile(
+      'router.get("/x/:userId", (req, res) => {\n' +
+      '  const {\n    userId\n  } = req.params;\n' +
+      '  return dao.get(userId);\n});\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'idor'))
+    );
+  });
+
+  test('taking the id from the session is not reported', () => {
+    withTempFile(
+      'router.get("/allocations", (req, res) => {\n' +
+      '  const { userId } = req.session;\n' +
+      '  return dao.getByUserId(userId);\n});\n',
+      result => assert.ok(!result.findings.some(f => f.ruleId === 'idor'),
+        'the session is the correct source of identity')
+    );
+  });
+
+  test('an explicit ownership check suppresses the finding', () => {
+    withTempFile(
+      'router.get("/doc/:userId", (req, res) => {\n' +
+      '  const { userId } = req.params;\n' +
+      '  if (!canAccess(req.user, userId)) return res.sendStatus(403);\n' +
+      '  return dao.get(userId);\n});\n',
+      result => assert.ok(!result.findings.some(f => f.ruleId === 'idor'),
+        'a handler that verifies ownership has handled this')
+    );
+  });
+
+  test('a commented-out fix does not count as a check', () => {
+    // NodeGoat ships the correct version commented out directly above the
+    // vulnerable line. Reading raw content would find `req.session` there and
+    // wrongly conclude the handler was safe.
+    withTempFile(
+      'router.get("/x/:userId", (req, res) => {\n' +
+      '  // const { userId } = req.session;\n' +
+      '  const { userId } = req.params;\n' +
+      '  return dao.get(userId);\n});\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'idor'),
+        'a disabled fix is not a fix')
+    );
+  });
+
+  test('a non-owner identifier is not reported', () => {
+    withTempFile(
+      'router.get("/post/:postId", (req, res) => {\n' +
+      '  const { postId } = req.params;\n' +
+      '  return dao.getPost(postId);\n});\n',
+      result => assert.ok(!result.findings.some(f => f.ruleId === 'idor'),
+        'not every id in a URL is a principal — only owner-ish names qualify')
+    );
+  });
+});
