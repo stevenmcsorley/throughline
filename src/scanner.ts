@@ -30,8 +30,18 @@ const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // ─── File Collection ───────────────────────────────────────────────────
 
-function shouldExclude(filePath: string, excludePatterns: string[]): boolean {
-  const normalized = filePath.replace(/\\/g, '/');
+/**
+ * @param relativeTo when set, only the portion of the path below this root is
+ *   considered. The root itself was explicitly requested, so directory names
+ *   above it — `/tmp`, a checkout inside `build/` — must not veto the scan.
+ */
+function shouldExclude(filePath: string, excludePatterns: string[], relativeTo?: string | null): boolean {
+  let candidate = filePath;
+  if (relativeTo) {
+    const rel = path.relative(relativeTo, filePath);
+    if (rel && !rel.startsWith('..')) candidate = rel;
+  }
+  const normalized = candidate.replace(/\\/g, '/');
   for (const pattern of excludePatterns) {
     if (pattern.includes('*')) {
       const regex = new RegExp(
@@ -48,18 +58,33 @@ function shouldExclude(filePath: string, excludePatterns: string[]): boolean {
   return false;
 }
 
-function walkDirectory(dir: string, extensions: string[], excludePatterns: string[], maxSize: number): string[] {
+/**
+ * @param isExplicitRoot true when this directory is one the user named on the
+ *   command line. Its own path is then exempt from exclusion checks — only the
+ *   parts of the tree discovered beneath it are filtered.
+ */
+function walkDirectory(
+  dir: string,
+  extensions: string[],
+  excludePatterns: string[],
+  maxSize: number,
+  isExplicitRoot = false
+): string[] {
   const files: string[] = [];
+  // Match exclusions against the path *relative to* an explicitly named root,
+  // so a project living in /tmp or under build/ is not rejected wholesale.
+  const relativeTo = isExplicitRoot ? dir : null;
+
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (!shouldExclude(fullPath, excludePatterns)) {
+        if (!shouldExclude(fullPath, excludePatterns, relativeTo)) {
           files.push(...walkDirectory(fullPath, extensions, excludePatterns, maxSize));
         }
       } else if (entry.isFile()) {
-        if (shouldExclude(fullPath, excludePatterns)) continue;
+        if (shouldExclude(fullPath, excludePatterns, relativeTo)) continue;
         try {
           const stat = fs.statSync(fullPath);
           if (stat.size > maxSize) continue;
@@ -505,23 +530,10 @@ function runScan(options: ScanOptions): ScanResult {
     : [];
   const maxSize = options.maxFileSize || DEFAULT_MAX_FILE_SIZE;
 
-  // Collect files
-  const allFiles: string[] = [];
-  for (const scanPath of options.paths) {
-    const resolved = path.resolve(scanPath);
-    try {
-      const stat = fs.statSync(resolved);
-      if (stat.isDirectory()) {
-        allFiles.push(...walkDirectory(resolved, extensions, excludePatterns, maxSize));
-      } else if (stat.isFile()) {
-        if (!shouldExclude(resolved, excludePatterns) && stat.size <= maxSize) {
-          allFiles.push(resolved);
-        }
-      }
-    } catch {
-      // Path doesn't exist — skip
-    }
-  }
+  // Collect files. Shared with the incremental path rather than duplicated —
+  // the two copies had already drifted, and a fix applied to one silently
+  // missed the other.
+  const allFiles = collectAllFiles(options);
 
   // ─── Phase 1+2: Per-file analysis (AST first, then pattern fallback) ───
   const tsEngine = new TreeSitterEngine();
@@ -747,11 +759,15 @@ function collectAllFiles(options: ScanOptions): string[] {
     try {
       const stat = fs.statSync(resolved);
       if (stat.isDirectory()) {
-        files.push(...walkDirectory(resolved, extensions, excludePatterns, maxSize));
+        // Exclusions prune what the walk *discovers*; they must not reject the
+        // root the user explicitly named. Otherwise `vulnscan /tmp/myproject`
+        // or a checkout under build/ silently scans nothing — the default list
+        // contains tmp, temp, out, bin, target and env.
+        files.push(...walkDirectory(resolved, extensions, excludePatterns, maxSize, true));
       } else if (stat.isFile()) {
-        if (!shouldExclude(resolved, excludePatterns) && stat.size <= maxSize) {
-          files.push(resolved);
-        }
+        // An explicitly named file is always scanned. Asking for a specific
+        // file and receiving silence is never the right answer.
+        if (stat.size <= maxSize) files.push(resolved);
       }
     } catch { /* skip */ }
   }

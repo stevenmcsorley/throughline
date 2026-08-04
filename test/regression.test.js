@@ -708,3 +708,80 @@ describe('precision: false positives found by scanning a real repository', () =>
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('explicitly requested paths are always scanned', () => {
+  // Found by CI on Linux, not reachable locally on Windows. The default exclude
+  // list contains `tmp`, `temp`, `out`, `bin`, `target` and `env`, and those
+  // patterns were tested against the absolute path — so `vulnscan /tmp/project`
+  // scanned nothing at all, silently. On Windows the temp directory is
+  // `...\AppData\Local\Temp\...`, which did not match the lowercase `tmp`, so
+  // every local run looked fine.
+  const VULN = 'const cp = require("child_process");\n' +
+    'function h(req) { cp.exec("ls " + req.query.d); }\n';
+
+  function inTree(build, check) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vulnscan-excl-'));
+    try {
+      check(build(root), root);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  for (const dirName of ['tmp', 'temp', 'out', 'bin', 'target', 'env', 'build', 'dist']) {
+    test(`a project inside a directory named "${dirName}" is scanned when named directly`, () => {
+      inTree(
+        root => {
+          const dir = path.join(root, dirName);
+          fs.mkdirSync(dir);
+          fs.writeFileSync(path.join(dir, 'app.js'), VULN);
+          return dir;
+        },
+        dir => {
+          const result = scanFixture(dir);
+          assert.strictEqual(result.filesScanned, 1,
+            `naming ${dirName}/ explicitly must scan it, not silently skip it`);
+          assert.ok(result.findings.length > 0, 'and must report its vulnerability');
+        }
+      );
+    });
+  }
+
+  test('an explicitly named file inside an excluded directory is scanned', () => {
+    inTree(
+      root => {
+        const dir = path.join(root, 'node_modules');
+        fs.mkdirSync(dir);
+        const file = path.join(dir, 'app.js');
+        fs.writeFileSync(file, VULN);
+        return file;
+      },
+      file => {
+        const result = scanFixture(file);
+        assert.strictEqual(result.filesScanned, 1,
+          'asking for one specific file and getting silence is never right');
+      }
+    );
+  });
+
+  test('an excluded directory found during a walk is still pruned', () => {
+    // The exemption must apply only to the root the user named, or the default
+    // exclude list stops working entirely.
+    inTree(
+      root => {
+        const nested = path.join(root, 'node_modules');
+        fs.mkdirSync(nested);
+        fs.writeFileSync(path.join(nested, 'dep.js'), VULN);
+        fs.writeFileSync(path.join(root, 'main.js'), 'const x = 1;\n');
+        return root;
+      },
+      root => {
+        const result = scanFixture(root);
+        assert.strictEqual(result.filesScanned, 1, 'node_modules/ must still be pruned');
+        assert.ok(!result.findings.some(f => f.file.includes('node_modules')));
+      }
+    );
+  });
+});

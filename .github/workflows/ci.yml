@@ -15,7 +15,9 @@ jobs:
         # `^` being cmd.exe's escape character, and MSYS tar reading `C:` as a
         # remote host. Both passed on Linux.
         os: [ubuntu-latest, windows-latest, macos-latest]
-        node: [20, 22]
+        # tree-sitter's native addon fails to build under Node 20 on all three
+        # runners; 22 is the supported floor (see package.json engines).
+        node: [22, 24]
 
     steps:
       - uses: actions/checkout@v4

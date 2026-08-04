@@ -44,5 +44,8 @@
   },
   "optionalDependencies": {
     "chokidar": "^4.0.3"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

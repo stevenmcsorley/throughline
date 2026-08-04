@@ -14,6 +14,9 @@ npm run build
 node dist/index.js ./your-project
 ```
 
+> Requires **Node 22 or newer** — tree-sitter's native addon does not build
+> under Node 20.
+>
 > `--legacy-peer-deps` is required: `tree-sitter-php@0.24.2` declares a peer of
 > `tree-sitter@^0.22.4` while the project uses `0.25.1`.
 
@@ -650,7 +653,7 @@ npm test          # builds, then runs the suite against dist/
 npm run test:only # skip the rebuild
 ```
 
-147 tests on Node's built-in runner — no test framework dependency. They execute against
+179 tests on Node's built-in runner — no test framework dependency. They execute against
 `dist/`, so a build that doesn't compile fails the suite rather than passing against
 TypeScript nobody ran.
 
