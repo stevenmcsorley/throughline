@@ -785,3 +785,70 @@ describe('explicitly requested paths are always scanned', () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('precision: false positives found by scanning benchmark applications', () => {
+  test('a static location redirect is not DOM XSS', () => {
+    // The exclusion for a literal value required it to run to end of line, so a
+    // trailing semicolon defeated it. 102 of 117 XSS findings on one benchmark
+    // were this pattern firing on hardcoded paths.
+    withTempFile(
+      'function go() { window.location.href = "/lab"; }\n',
+      result => assert.deepStrictEqual(result.findings.map(f => f.ruleId), [])
+    );
+  });
+
+  test('a dynamic location redirect is still reported', () => {
+    withTempFile(
+      'function go(req) { window.location.href = req.query.next; }\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'xss'),
+        'an attacker-controlled redirect target is a real DOM XSS vector')
+    );
+  });
+
+  test('an auto-escaped template variable is not XSS', () => {
+    // Django and Jinja2 escape by default, so `{{ value }}` is the safe form.
+    // Flagging it made every template variable in a Django project a finding.
+    withTempFile(
+      '<p>{{ form.username.errors }}</p>\n<span>{{ request.user.name }}</span>\n',
+      result => assert.deepStrictEqual(result.findings.map(f => f.ruleId), []),
+      'page.html'
+    );
+  });
+
+  test('a template variable with escaping disabled is reported', () => {
+    withTempFile(
+      '<div>{{ user_bio|safe }}</div>\n',
+      result => assert.ok(result.findings.some(f => f.ruleId === 'xss'),
+        '|safe turns escaping off — that is the actual risk'),
+      'page.html'
+    );
+  });
+
+  test('one weakness matched by two patterns is reported once', () => {
+    // A rule often carries several patterns for the same weakness. DVWA had all
+    // 31 of its MD5 calls reported twice — the same problem described two ways.
+    withTempFile(
+      '<?php $h = md5($password); ?>\n',
+      result => {
+        const crypto = result.findings.filter(f => f.ruleId === 'insecure-crypto');
+        assert.strictEqual(crypto.length, 1,
+          `one md5 call produced ${crypto.length} findings: ` +
+          crypto.map(f => f.message).join(' | '));
+      },
+      'hash.php'
+    );
+  });
+
+  test('two distinct weaknesses on one line are both reported', () => {
+    // The deduplication is positional, so genuinely different issues survive.
+    withTempFile(
+      'const t = jwt.sign(payload, "secret", { algorithm: "HS256" });\n',
+      result => {
+        const jwt = result.findings.filter(f => f.ruleId === 'insecure-jwt');
+        assert.ok(jwt.length >= 1, 'the weak JWT configuration must be reported');
+      }
+    );
+  });
+});

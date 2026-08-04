@@ -31,8 +31,16 @@ export const xssRule: Rule = {
     { regex: /document\.write\s*\(\s*(?!["'][^"']*["']\s*$)/g, message: 'document.write with dynamic content — DOM XSS', recommendation: 'Use DOM manipulation methods (createElement, appendChild) or set textContent instead.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /eval\s*\(\s*(?:.*innerHTML|.*outerHTML|.*document\.)/gi, message: 'eval with DOM content — code injection via XSS', recommendation: 'Never use eval(). Use JSON.parse() for data or Function constructor with caution.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /echo\s+(?!htmlspecialchars|htmlentities|escape)\$_(?:GET|POST|REQUEST|SERVER|COOKIE)/gi, message: 'PHP echo of raw user input — reflected XSS', recommendation: 'Always use htmlspecialchars($input, ENT_QUOTES, "UTF-8") when outputting to HTML context.', confidence: 'high', falsePositiveRisk: 'low' },
-    { regex: /\{\{\s*(?!.*\|[\s]*e[\s}]).*\b(?:request\.|params\.|form\.|query\.|req\.)/gi, message: 'Twig/Jinja2 variable without e(filter) — potential XSS', recommendation: 'Use {{ variable|e }} or enable auto-escaping in the template engine configuration.', confidence: 'high', falsePositiveRisk: 'low' },
-    { regex: /location\s*\.\s*(?:href|search|hash|pathname)\s*=\s*(?!["'][^"']*$)/gi, message: 'location redirect with dynamic content — DOM XSS (javascript: URI)', recommendation: 'Validate URL starts with http:// or https://. Block javascript: and data: URI schemes.', confidence: 'high', falsePositiveRisk: 'low' },
+    // Django and Jinja2 auto-escape by default, so a bare `{{ value }}` is the
+    // safe case — flagging it meant every template variable in a Django project
+    // became a finding. The actual risks are escaping being turned off, or
+    // interpolation into a JavaScript context where HTML escaping does not help.
+    { regex: /\{\{[^}]*\|\s*safe\b|\{%\s*autoescape\s+off\s*%\}|\bmark_safe\s*\(/gi, message: 'Template auto-escaping bypassed — XSS if the value is untrusted', recommendation: 'Remove |safe / mark_safe(), or sanitise the value with a allow-list HTML sanitiser before marking it safe.', confidence: 'high', falsePositiveRisk: 'low' },
+    // The old lookahead `(?!["'][^"']*$)` required the literal to run to end of
+    // line, so a trailing semicolon defeated it and `location.href = "/lab";`
+    // was reported as DOM XSS. 102 of 117 XSS findings on one benchmark were
+    // this single pattern firing on static strings.
+    { regex: /location\s*\.\s*(?:href|search|hash|pathname)\s*=\s*(?!\s*["'][^"']*["'])/gi, message: 'location redirect with dynamic content — DOM XSS (javascript: URI)', recommendation: 'Validate URL starts with http:// or https://. Block javascript: and data: URI schemes.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /\$\([^)]*\)\s*\.html\s*\(\s*(?!["'][^"']*$)/g, message: 'jQuery .html() with dynamic content — XSS risk', recommendation: 'Use .text() instead. If HTML is needed, use DOMPurify or similar sanitization.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /(?:v-html|ng-bind-html|\[innerHTML\])\s*=/gi, message: 'Framework HTML binding (v-html/ng-bind-html/[innerHTML]) — XSS risk', recommendation: 'Avoid raw HTML bindings. Use text bindings. If essential, sanitize with a trusted library.', confidence: 'high', falsePositiveRisk: 'low' },
     { regex: /(<script[^>]*>.*\$\{|<script[^>]*>.*`.*\$\{)/g, message: 'Template literal in script tag — potential stored/reflected XSS', recommendation: 'Never interpolate user data directly into script tags. Use data attributes and JavaScript to read them.', confidence: 'high', falsePositiveRisk: 'low' },

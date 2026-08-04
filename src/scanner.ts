@@ -181,14 +181,15 @@ function scanFilePatterns(
   const basename = path.basename(filePath);
 
   for (const rule of rules) {
-    // Skip only rules whose AST patterns actually apply to *this* language.
+    // Deliberately no longer skips rules the AST pass handled.
     //
-    // This used to skip any rule that had semantic patterns at all. Since those
-    // patterns were written for JavaScript and Python, rules like sql-injection
-    // and command-injection were silently dead on Go, PHP and Ruby: the AST
-    // queries could not match those grammars, and the regex fallback that would
-    // have caught them was skipped anyway.
-    if (astCoveredRuleIds.has(rule.id)) continue;
+    // A rule's AST patterns usually cover only part of what its regex patterns
+    // do — `xss` has tree-sitter queries for innerHTML and
+    // dangerouslySetInnerHTML, but the DOM-redirect and template-escaping
+    // patterns are regex only. Treating AST coverage as exclusive silently
+    // dropped every one of those. The two engines are complementary; anything
+    // both find at the same place is collapsed afterwards.
+    void astCoveredRuleIds;
 
     const ruleExts = rule.extensions.map(e => e.toLowerCase());
     const matches = ruleExts.includes(ext) ||
@@ -196,12 +197,57 @@ function scanFilePatterns(
       ruleExts.includes('*');
 
     if (matches) {
-      const ruleFindings = rule.scan(filePath, content, lines);
-      findings.push(...ruleFindings);
+      findings.push(...dedupeSamePosition(rule.scan(filePath, content, lines)));
     }
   }
 
   return findings;
+}
+
+/**
+ * Collapse findings from the same rule that matched the same text.
+ *
+ * Rules often carry several patterns for one weakness, and more than one can
+ * hit the same call. DVWA reported all 31 of its `MD5(...)` calls twice — once
+ * as "MD5/MD4 hash used" and once as "PHP weak hash function" — which is the
+ * same problem described twice, not two problems.
+ *
+ * Keyed on position, so two genuinely distinct issues on one line (a JWT with
+ * both a literal secret and a weak algorithm, matched at different offsets)
+ * both survive. The highest-confidence message wins.
+ */
+/**
+ * Merge the AST and regex results for one file.
+ *
+ * Both engines legitimately report the same weakness — the AST pass with more
+ * precision, the regex pass with broader coverage. Where they land on the same
+ * rule and line, the AST finding wins; everything else is kept, so a rule whose
+ * AST patterns cover only part of its surface still contributes its regex
+ * findings.
+ */
+function dedupeAcrossEngines(astFindings: Finding[], patternFindings: Finding[]): Finding[] {
+  if (astFindings.length === 0) return patternFindings;
+
+  const claimed = new Set(astFindings.map(f => `${f.file}:${f.line}:${f.ruleId}`));
+  return [
+    ...astFindings,
+    ...patternFindings.filter(f => !claimed.has(`${f.file}:${f.line}:${f.ruleId}`)),
+  ];
+}
+
+function dedupeSamePosition(findings: Finding[]): Finding[] {
+  if (findings.length < 2) return findings;
+  const rank: Record<string, number> = { certain: 3, high: 2, medium: 1, low: 0 };
+  const best = new Map<string, Finding>();
+
+  for (const f of findings) {
+    const key = `${f.line}:${f.column}`;
+    const held = best.get(key);
+    if (!held || (rank[f.confidence] ?? 0) > (rank[held.confidence] ?? 0)) {
+      best.set(key, f);
+    }
+  }
+  return [...best.values()];
 }
 
 /**
@@ -300,6 +346,51 @@ function taintSinkCategory(sink: string): string | null {
 /** Identity used to suppress the same issue reported by two engines. */
 function dedupKey(f: { file: string; line: number; ruleId: string }): string {
   return `${f.file}:${f.line}:${f.ruleId}`;
+}
+
+/** Synthetic taint-engine rule IDs mapped back to the declared rule they mirror. */
+const SYNTHETIC_TO_DECLARED: Record<string, string> = {
+  sql: 'sql-injection',
+  'command-exec': 'command-injection',
+  command: 'command-injection',
+  eval: 'command-injection',
+  'code-exec': 'insecure-deserialization',
+  'file-write': 'path-traversal',
+  'file-op': 'path-traversal',
+  file: 'path-traversal',
+  'network-req': 'ssrf',
+  ssrf: 'ssrf',
+  'html-render': 'xss',
+  xss: 'xss',
+  redirect: 'open-redirect',
+  crypto: 'insecure-crypto',
+  deserialize: 'insecure-deserialization',
+};
+
+function declaredEquivalent(ruleId: string): string | null {
+  const m = /^cpg-(?:precise|direct)-(.+)$/.exec(ruleId);
+  return m ? SYNTHETIC_TO_DECLARED[m[1]] ?? null : null;
+}
+
+/**
+ * True when a declared rule already reported this weakness nearby.
+ *
+ * The taint engines emit synthetic IDs (`cpg-precise-sql`), so an exact
+ * file:line:ruleId comparison never matches the pattern rule's finding
+ * (`sql-injection`) for the same bug — one concatenated query was reported
+ * twice, once at the enclosing function and once at the call. The CPG node
+ * spans the function, so the two land on different lines; the window absorbs
+ * that.
+ */
+function alreadyReportedByRule(
+  vuln: { file: string; line: number; ruleId: string },
+  existing: Finding[]
+): boolean {
+  const declared = declaredEquivalent(vuln.ruleId);
+  if (!declared) return false;
+  return existing.some(
+    f => f.ruleId === declared && f.file === vuln.file && Math.abs(f.line - vuln.line) <= 25
+  );
 }
 
 // ─── Cache invalidation ────────────────────────────────────────────────
@@ -545,22 +636,19 @@ function runScan(options: ScanOptions): ScanResult {
       const lines = content.split('\n');
       const ext = path.extname(file).toLowerCase();
 
-      // Try tree-sitter AST analysis first. Track which rules it genuinely
-      // covers for this language, so the regex fallback fills the rest.
+      // Tree-sitter AST analysis, where a grammar is available.
       const astCoveredRuleIds = new Set<string>();
+      const astFindings: Finding[] = [];
       if (tsEngine.supports(ext) && tsEngine.init(ext)) {
-        for (const rule of rules) {
-          const semanticPatterns = SEMANTIC_RULES[rule.id];
-          if (semanticPatterns?.length && tsEngine.applicablePatterns(semanticPatterns).length > 0) {
-            astCoveredRuleIds.add(rule.id);
-          }
-        }
-        allFindings.push(...scanFileAst(file, content, lines, tsEngine, rules));
+        astFindings.push(...scanFileAst(file, content, lines, tsEngine, rules));
       }
 
-      // Regex rules cover everything the AST pass did not.
-      const patternFindings = scanFilePatterns(file, content, lines, rules, astCoveredRuleIds);
-      allFindings.push(...patternFindings);
+      // Regex rules run alongside the AST pass rather than instead of it;
+      // overlapping results are collapsed, preferring the AST finding.
+      allFindings.push(...dedupeAcrossEngines(
+        astFindings,
+        scanFilePatterns(file, content, lines, rules, astCoveredRuleIds)
+      ));
     } catch {
       // Binary or unreadable — skip
     }
@@ -617,6 +705,8 @@ function runScan(options: ScanOptions): ScanResult {
       for (const vuln of cpgVulns) {
         const key = dedupKey(vuln);
         if (seenKeys.has(key)) continue;
+        // A pattern rule may already have reported this same weakness.
+        if (alreadyReportedByRule(vuln, allFindings)) continue;
         seenKeys.add(key);
 
         allFindings.push({
@@ -659,6 +749,8 @@ function runScan(options: ScanOptions): ScanResult {
       for (const vuln of mlVulns) {
         const key = dedupKey(vuln);
         if (seenKeys.has(key)) continue;
+        // A pattern rule may already have reported this same weakness.
+        if (alreadyReportedByRule(vuln, allFindings)) continue;
         seenKeys.add(key);
 
         allFindings.push({

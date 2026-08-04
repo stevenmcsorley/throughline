@@ -48,7 +48,10 @@ export const commandInjectionRule: Rule = {
       falsePositiveRisk: 'low',
     },
     {
-      regex: /(?:system|exec|passthru|shell_exec|popen|proc_open|expect_popen)\s*\(\s*(?!["'][^"']*["']\s*[),;])/gi,
+      // `(?<![.\w$])` keeps method calls out: `regex.exec(line)` and
+      // `child.exec` are not shell invocations. Without it, every RegExp.exec
+      // in a codebase reports as command injection.
+      regex: /(?<![.\w$])(?:system|exec|passthru|shell_exec|popen|proc_open|expect_popen)\s*\(\s*(?!["'][^"']*["']\s*[),;])/gi,
       // escapeshellarg/escapeshellcmd are the documented PHP mitigations; a call
       // that uses them is the fixed form, not the vulnerable one.
       neutralizedBy: /\bescapeshellarg\s*\(|\bescapeshellcmd\s*\(/i,
